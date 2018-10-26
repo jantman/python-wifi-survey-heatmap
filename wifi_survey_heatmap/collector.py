@@ -3,7 +3,7 @@ The latest version of this package is available at:
 <http://github.com/jantman/wifi-survey-heatmap>
 
 ##################################################################################
-Copyright 2017 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
+Copyright 2018 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
     This file is part of wifi-survey-heatmap, also known as wifi-survey-heatmap.
 
@@ -35,51 +35,52 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ##################################################################################
 """
 
-from setuptools import setup, find_packages
-from wifi_survey_heatmap.version import VERSION, PROJECT_URL
+import logging
 
-with open('README.rst') as file:
-    long_description = file.read()
+from iwlib.iwlist import scan
+from iwlib.iwconfig import get_iwconfig
+import NetworkManager
 
-requires = [
-    'iwlib==1.6.1',
-    'python-networkmanager==2.1'
-]
+logger = logging.getLogger(__name__)
 
-classifiers = [
-    'Development Status :: 1 - Planning',
-    'Environment :: X11 Applications :: GTK',
-    'Intended Audience :: End Users/Desktop',
-    'Intended Audience :: Information Technology',
-    'Intended Audience :: System Administrators',
-    'License :: OSI Approved :: GNU Affero General Public License '
-    'v3 or later (AGPLv3+)',
-    'Natural Language :: English',
-    'Operating System :: POSIX :: Linux',
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 2.7',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.4',
-    'Programming Language :: Python :: 3.5',
-    'Programming Language :: Python :: 3.6',
-    'Topic :: System :: Networking'
-]
 
-setup(
-    name='wifi-survey-heatmap',
-    version=VERSION,
-    author='Jason Antman',
-    author_email='jason@jasonantman.com',
-    packages=find_packages(),
-    url=PROJECT_URL,
-    description='Perform a WiFi site survey and plot on a heatmap',
-    long_description=long_description,
-    install_requires=requires,
-    keywords="wifi wireless wlan survey map heatmap",
-    classifiers=classifiers,
-    entry_points={
-        'console_scripts': [
-            'wifi-scan = wifi_survey_heatmap.scancli:main'
-        ]
-    }
-)
+class Collector(object):
+
+    def __init__(self, interface_name):
+        super().__init__()
+        logger.debug('Initializing Collector for interface: %s', interface_name)
+        self._interface_name = interface_name
+
+    def run(self):
+        res = {}
+        logger.debug('Getting iwconfig...')
+        res['config'] = get_iwconfig(self._interface_name)
+        logger.debug('iwconfig result: %s', res['config'])
+        """
+        logger.debug('Scanning...')
+        res['scan'] = scan(self._interface_name)
+        logger.debug('scan result: %s', res['scan'])
+        """
+        logger.debug('Finding APs via NetworkManager')
+        res['nm_aps'] = {}
+        """
+        for dev in NetworkManager.Device.all():
+            if dev.DeviceType == NetworkManager.NM_DEVICE_TYPE_WIFI:
+        """
+        for ap in NetworkManager.AccessPoint.all():
+            try:
+                res['nm_aps'][ap.object_path] = {
+                    'ssid': ap.Ssid,
+                    'mac': ap.HwAddress,
+                    'frequency': ap.Frequency,
+                    'strength': ap.Strength
+                }
+                logger.debug('AP: %s', vars(ap))
+                logger.debug(dir(ap))
+            except NetworkManager.ObjectVanished:
+                pass
+        logger.debug(
+            'Found %d APs from NetworkManager: %s',
+            len(res['nm_aps']), res['nm_aps']
+        )
+        return res

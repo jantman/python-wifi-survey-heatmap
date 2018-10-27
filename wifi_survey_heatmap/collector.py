@@ -37,8 +37,8 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import logging
 
-from wifi_survey_heatmap.iwscan import scan
-from iwlib.iwconfig import get_iwconfig
+from wifi_survey_heatmap.vendor.iwlib.iwconfig import get_iwconfig
+from wifi_survey_heatmap.vendor.iwlib.iwlist import scan
 
 logger = logging.getLogger(__name__)
 

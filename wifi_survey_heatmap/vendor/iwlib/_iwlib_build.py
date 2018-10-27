@@ -203,7 +203,11 @@ structs = """
     };
 """
 
-ffibuilder.set_source("iwlib._iwlib", "#include <iwlib.h>", libraries=['iw'])
+ffibuilder.set_source(
+    "wifi_survey_heatmap.vendor.iwlib._iwlib",
+    "#include <iwlib.h>",
+    libraries=['iw']
+)
 ffibuilder.cdef(structs + externs + defs + funcs)
 
 iwlib = ffibuilder.verify("#include <iwlib.h>", libraries=['iw'])

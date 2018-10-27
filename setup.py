@@ -42,8 +42,7 @@ with open('README.rst') as file:
     long_description = file.read()
 
 requires = [
-    'iwlib==1.6.1',
-    'python-networkmanager==2.1'
+    'iwlib==1.6.1'
 ]
 
 classifiers = [
@@ -72,7 +71,9 @@ setup(
     author_email='jason@jasonantman.com',
     packages=find_packages(),
     url=PROJECT_URL,
-    description='Perform a WiFi site survey and plot on a heatmap',
+    description='A Python application for Linux machines to perform WiFi site'
+                ' surveys and present the results as a heatmap overlayed on '
+                'a floorplan.',
     long_description=long_description,
     install_requires=requires,
     keywords="wifi wireless wlan survey map heatmap",

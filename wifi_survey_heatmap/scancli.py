@@ -50,10 +50,10 @@ logger = logging.getLogger()
 
 class CliWrapper(object):
 
-    def run(self, ifname, connections):
+    def run(self, ifname):
         if os.geteuid() != 0:
             raise RuntimeError('ERROR: This script must be run as root/sudo.')
-        c = Collector(ifname, connections)
+        c = Collector(ifname)
         print(c.run())
 
 
@@ -67,12 +67,8 @@ def parse_args(argv):
     p = argparse.ArgumentParser(description='Sample python script skeleton.')
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
-    p.add_argument('-c', '--connection', dest='connections', action='append',
-                   default=[], help='NetworkManager connection names to test')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
     args = p.parse_args(argv)
-    if len(args.connections) < 1:
-        raise RuntimeError('ERROR: You must specify at least one connection')
     return args
 
 
@@ -114,7 +110,7 @@ def main():
     elif args.verbose == 1:
         set_log_info()
 
-    CliWrapper().run(args.INTERFACE, args.connections)
+    CliWrapper().run(args.INTERFACE)
 
 
 if __name__ == "__main__":

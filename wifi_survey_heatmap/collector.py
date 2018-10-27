@@ -46,10 +46,40 @@ logger = logging.getLogger(__name__)
 
 class Collector(object):
 
-    def __init__(self, interface_name):
+    def __init__(self, interface_name, conn_names):
         super().__init__()
-        logger.debug('Initializing Collector for interface: %s', interface_name)
+        logger.debug(
+            'Initializing Collector for interface: %s with connections: %s',
+            interface_name, conn_names
+        )
         self._interface_name = interface_name
+        self._device = None
+        for dev in NetworkManager.NetworkManager.GetDevices():
+            if dev.Interface == interface_name:
+                self._device = dev
+        if self._device is None:
+            raise RuntimeError('ERROR: No device "%s" found.' % interface_name)
+        self._connection_names = conn_names
+        connections = dict([
+            (
+                x.GetSettings()['connection']['id'], x
+            ) for x in NetworkManager.Settings.ListConnections()
+        ])
+        self._connections = {
+            x: connections[x] for x in connections if x in conn_names
+        }
+
+    def _activate_connection(self, name):
+        conn = self._connections[name]
+        NetworkManager.NetworkManager.ActivateConnection(
+            conn, self._device, "/"
+        )
+
+    def _get_active_connection_name(self):
+        for conn in NetworkManager.NetworkManager.ActiveConnections:
+            if conn in self._connections.values():
+                return conn.Connection.GetSettings()['connection']['id']
+        return None
 
     def run(self):
         res = {}
@@ -75,12 +105,40 @@ class Collector(object):
                     'frequency': ap.Frequency,
                     'strength': ap.Strength
                 }
-                logger.debug('AP: %s', vars(ap))
-                logger.debug(dir(ap))
             except NetworkManager.ObjectVanished:
                 pass
         logger.debug(
             'Found %d APs from NetworkManager: %s',
             len(res['nm_aps']), res['nm_aps']
         )
+        # BEGIN DEBUG
+        print("Available network devices")
+        print("%-10s %-19s %-20s %s" % ("Name", "State", "Driver", "Managed?"))
+        for dev in NetworkManager.NetworkManager.GetDevices():
+            print("%-10s %-19s %-20s %s" % (
+            dev.Interface, NetworkManager.const('device_state', dev.State), dev.Driver,
+            dev.Managed))
+
+        print("")
+
+        print("Available connections")
+        print("%-30s %s" % ("Name", "Type"))
+        for conn in NetworkManager.Settings.ListConnections():
+            settings = conn.GetSettings()['connection']
+            print("%-30s %s" % (settings['id'], settings['type']))
+
+        print("")
+
+        print("Active connections")
+        print("%-30s %-20s %-10s %s" % ("Name", "Type", "Default", "Devices"))
+        for conn in NetworkManager.NetworkManager.ActiveConnections:
+            settings = conn.Connection.GetSettings()['connection']
+            print("%-30s %-20s %-10s %s" % (
+            settings['id'], settings['type'], conn.Default,
+            ", ".join([x.Interface for x in conn.Devices])))
+        print('############## Device %s' % self._interface_name)
+        print(self._device)
+        print(NetworkManager.const('device_state', self._device.State))
+        print(self._device.ActiveConnection.Id)
+        # END DEBUG
         return res

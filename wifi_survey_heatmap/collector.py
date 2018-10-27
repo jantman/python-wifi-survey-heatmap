@@ -36,9 +36,12 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 
 import logging
+from time import sleep
 
 from wifi_survey_heatmap.vendor.iwlib.iwconfig import get_iwconfig
 from wifi_survey_heatmap.vendor.iwlib.iwlist import scan
+
+import iperf3
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +57,39 @@ class Collector(object):
         self._interface_name = interface_name
         self._iperf_server = server_addr
 
-    def _run_iperf(self):
-        res = {}
+    def _run_iperf(self, udp=False, reverse=False):
+        client = iperf3.Client()
+        client.server_hostname = self._iperf_server
+        client.port = 5201
+        client.protocol = 'udp' if udp else 'tcp'
+        client.reverse = reverse
+        logger.debug(
+            'Running iperf to %s; udp=%s reverse=%s', self._iperf_server,
+            udp, reverse
+        )
+        for retry in range(0, 4):
+            res = client.run()
+            if res.error is None:
+                break
+            logger.error('iperf error: %s; retrying', res.error)
+        logger.debug('iperf result: %s', res)
+        return res
+
+    def _run_all_iperf(self):
+        res = {'tcp': {}, 'udp': {}}
+        for proto_name, udp in {'tcp': False, 'udp': True}.items():
+            for dest_name, reverse in {
+                'client_to_server': False,
+                'server_to_client': True
+            }.items():
+                res[proto_name][dest_name] = self._run_iperf(udp, reverse)
+                logger.debug('Sleeping 2s before next iperf run')
+                sleep(2)
         return res
 
     def run(self):
         res = {
-            'iperf': self._run_iperf()
+            'iperf': self._run_all_iperf()
         }
         logger.debug('Getting iwconfig...')
         res['config'] = get_iwconfig(self._interface_name)

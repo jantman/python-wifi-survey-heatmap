@@ -42,7 +42,7 @@ with open('README.rst') as file:
     long_description = file.read()
 
 requires = [
-    'iwlib==1.6.1',
+    'cffi>=1.0.0',
     'iperf3==0.1.10'
 ]
 
@@ -77,11 +77,16 @@ setup(
                 'a floorplan.',
     long_description=long_description,
     install_requires=requires,
+    setup_requires=['cffi>=1.0.0'],
     keywords="wifi wireless wlan survey map heatmap",
     classifiers=classifiers,
     entry_points={
         'console_scripts': [
             'wifi-scan = wifi_survey_heatmap.scancli:main'
         ]
-    }
+    },
+    cffi_modules=[
+        'wifi_survey_heatmap/vendor/iwlib/_iwlib_build.py:ffibuilder'
+    ],
+    zip_safe=False
 )

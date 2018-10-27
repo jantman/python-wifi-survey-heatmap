@@ -48,6 +48,9 @@ def scan(interface):
         if scan.b.has_mode:
             parsed_scan['Mode'] = ffi.string(iwlib.iw_operation_mode[scan.b.mode])
 
+        if scan.b.has_freq:
+            parsed_scan['Frequency'] = scan.b.freq
+
         if scan.b.essid_on:
             parsed_scan['ESSID'] = ffi.string(scan.b.essid)
         else:

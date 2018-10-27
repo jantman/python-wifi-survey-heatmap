@@ -50,10 +50,10 @@ logger = logging.getLogger()
 
 class CliWrapper(object):
 
-    def run(self, ifname):
+    def run(self, ifname, server):
         if os.geteuid() != 0:
             raise RuntimeError('ERROR: This script must be run as root/sudo.')
-        c = Collector(ifname)
+        c = Collector(ifname, server)
         print(c.run())
 
 
@@ -68,6 +68,7 @@ def parse_args(argv):
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
+    p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
     args = p.parse_args(argv)
     return args
 
@@ -110,7 +111,7 @@ def main():
     elif args.verbose == 1:
         set_log_info()
 
-    CliWrapper().run(args.INTERFACE)
+    CliWrapper().run(args.INTERFACE, args.SERVER)
 
 
 if __name__ == "__main__":

@@ -42,7 +42,8 @@ with open('README.rst') as file:
     long_description = file.read()
 
 requires = [
-    'iwlib==1.6.1'
+    'iwlib==1.6.1',
+    'iperf3==0.1.10'
 ]
 
 classifiers = [

@@ -57,4 +57,7 @@ class Collector(object):
         logger.debug('Getting iwconfig...')
         res['config'] = get_iwconfig(self._interface_name)
         logger.debug('iwconfig result: %s', res['config'])
+        logger.debug('Scanning...')
+        res['scan'] = scan(self._interface_name)
+        logger.debug('scan result: %s', res['scan'])
         return res

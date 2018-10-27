@@ -35,6 +35,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ##################################################################################
 """
 
+from time import sleep
 import logging
 
 from iwlib.iwlist import scan
@@ -53,50 +54,34 @@ class Collector(object):
             interface_name, conn_names
         )
         self._interface_name = interface_name
-        self._device = None
-        for dev in NetworkManager.NetworkManager.GetDevices():
-            if dev.Interface == interface_name:
-                self._device = dev
-        if self._device is None:
-            raise RuntimeError('ERROR: No device "%s" found.' % interface_name)
         self._connection_names = conn_names
+
+    @property
+    def _device(self):
+        for dev in NetworkManager.NetworkManager.GetDevices():
+            if dev.Interface == self._interface_name:
+                return dev
+        raise RuntimeError('ERROR: No device "%s" found.' % interface_name)
+
+    @property
+    def _connections(self):
         connections = dict([
             (
                 x.GetSettings()['connection']['id'], x
             ) for x in NetworkManager.Settings.ListConnections()
         ])
-        self._connections = {
-            x: connections[x] for x in connections if x in conn_names
+        return {
+            x: connections[x] for x in connections
+            if x in self._connection_names
         }
 
-    def _activate_connection(self, name):
-        conn = self._connections[name]
-        NetworkManager.NetworkManager.ActivateConnection(
-            conn, self._device, "/"
-        )
-
-    def _get_active_connection_name(self):
-        for conn in NetworkManager.NetworkManager.ActiveConnections:
-            if conn in self._connections.values():
-                return conn.Connection.GetSettings()['connection']['id']
-        return None
-
-    def run(self):
+    def _get_current_stats(self):
         res = {}
         logger.debug('Getting iwconfig...')
         res['config'] = get_iwconfig(self._interface_name)
         logger.debug('iwconfig result: %s', res['config'])
-        """
-        logger.debug('Scanning...')
-        res['scan'] = scan(self._interface_name)
-        logger.debug('scan result: %s', res['scan'])
-        """
         logger.debug('Finding APs via NetworkManager')
         res['nm_aps'] = {}
-        """
-        for dev in NetworkManager.Device.all():
-            if dev.DeviceType == NetworkManager.NM_DEVICE_TYPE_WIFI:
-        """
         for ap in NetworkManager.AccessPoint.all():
             try:
                 res['nm_aps'][ap.object_path] = {
@@ -111,34 +96,67 @@ class Collector(object):
             'Found %d APs from NetworkManager: %s',
             len(res['nm_aps']), res['nm_aps']
         )
-        # BEGIN DEBUG
-        print("Available network devices")
-        print("%-10s %-19s %-20s %s" % ("Name", "State", "Driver", "Managed?"))
-        for dev in NetworkManager.NetworkManager.GetDevices():
-            print("%-10s %-19s %-20s %s" % (
-            dev.Interface, NetworkManager.const('device_state', dev.State), dev.Driver,
-            dev.Managed))
+        return res
 
-        print("")
+    @property
+    def _active_connections(self):
+        try:
+            return dict([
+                (x.Connection.GetSettings()['connection']['id'], x)
+                for x in NetworkManager.NetworkManager.ActiveConnections
+            ])
+        except Exception:
+            return {}
 
-        print("Available connections")
-        print("%-30s %s" % ("Name", "Type"))
-        for conn in NetworkManager.Settings.ListConnections():
-            settings = conn.GetSettings()['connection']
-            print("%-30s %s" % (settings['id'], settings['type']))
+    def _deactivate(self):
+        for cname, conn in self._active_connections.items():
+            if cname not in self._connection_names:
+                continue
+            try:
+                logger.debug('Deactivating connection: %s', cname)
+                NetworkManager.NetworkManager.DeactivateConnection(conn)
+            except Exception as ex:
+                logger.debug('Unable to deactivate: %s', ex, exc_info=True)
+            for i in range(0, 100):
+                s = self._device.State
+                if s == NetworkManager.NM_DEVICE_STATE_DISCONNECTED:
+                    logger.debug('Device is disconnected.')
+                    return
+                logger.debug(
+                    'Device is in state %s; sleep 2s',
+                    NetworkManager.const('device_state', s)
+                )
+            raise RuntimeError('ERROR: Device never disconnected.')
 
-        print("")
+    def _activate(self, conn_name, conn):
+        logger.debug('Activating %s', conn_name)
+        NetworkManager.NetworkManager.ActivateConnection(
+            conn, self._device, "/"
+        )
+        for i in range(0, 100):
+            if conn_name in self._active_connections.keys():
+                logger.debug('Activated connection %s', conn_name)
+                return
+            logger.debug('Connection %s not active yet; sleep 2s', conn_name)
+            sleep(2)
+        raise RuntimeError('ERROR: Connection never activated.')
 
-        print("Active connections")
-        print("%-30s %-20s %-10s %s" % ("Name", "Type", "Default", "Devices"))
-        for conn in NetworkManager.NetworkManager.ActiveConnections:
-            settings = conn.Connection.GetSettings()['connection']
-            print("%-30s %-20s %-10s %s" % (
-            settings['id'], settings['type'], conn.Default,
-            ", ".join([x.Interface for x in conn.Devices])))
-        print('############## Device %s' % self._interface_name)
-        print(self._device)
-        print(NetworkManager.const('device_state', self._device.State))
-        print(self._device.ActiveConnection.Id)
-        # END DEBUG
+    def run(self):
+        res = {}
+        if self._device.ActiveConnection is not None:
+            logger.info(
+                'Getting stats for current connection: %s',
+                self._device.ActiveConnection.Id
+            )
+            res[self._device.ActiveConnection.Id] = self._get_current_stats()
+        for conn_name, conn in self._connections.items():
+            if conn_name in res.keys():
+                continue
+            self._deactivate()
+            logger.info(
+                'Connecting to and getting stats for connection: %s',
+                conn_name
+            )
+            self._activate(conn_name, conn)
+            res[conn_name] = self._get_current_stats()
         return res

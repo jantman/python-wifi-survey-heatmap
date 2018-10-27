@@ -37,7 +37,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import logging
 
-from iwlib.iwlist import scan
+from wifi_survey_heatmap.iwscan import scan
 from iwlib.iwconfig import get_iwconfig
 
 logger = logging.getLogger(__name__)
@@ -45,15 +45,23 @@ logger = logging.getLogger(__name__)
 
 class Collector(object):
 
-    def __init__(self, interface_name):
+    def __init__(self, interface_name, server_addr):
         super().__init__()
         logger.debug(
-            'Initializing Collector for interface: %s', interface_name
+            'Initializing Collector for interface: %s; iperf server: %s',
+            interface_name, server_addr
         )
         self._interface_name = interface_name
+        self._iperf_server = server_addr
+
+    def _run_iperf(self):
+        res = {}
+        return res
 
     def run(self):
-        res = {}
+        res = {
+            'iperf': self._run_iperf()
+        }
         logger.debug('Getting iwconfig...')
         res['config'] = get_iwconfig(self._interface_name)
         logger.debug('iwconfig result: %s', res['config'])

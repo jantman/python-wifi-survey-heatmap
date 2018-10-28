@@ -129,10 +129,6 @@ class SafeEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, type(b'')):
             return obj.decode()
-        if isinstance(obj, TestResult):
-            return {
-                x: getattr(obj, x, None) for x in RESULT_FIELDS
-            }
         return json.JSONEncoder.default(self, obj)
 
 
@@ -146,8 +142,20 @@ class FloorplanPanel(wx.Panel):
         self.Bind(wx.EVT_LEFT_UP, self.onClick)
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.survey_points = []
+        if self.parent.resume_file is not None:
+            self._load_file(self.parent.resume_file)
         self.collector = Collector(self.parent.interface, self.parent.server)
         self.parent.SetStatusText("Ready.")
+
+    def _load_file(self, fpath):
+        with open(fpath, 'r') as fh:
+            raw = fh.read()
+        data = json.loads(raw)
+        for point in data:
+            p = SurveyPoint(self, point['x'], point['y'])
+            p.set_result(point['result'])
+            p.set_is_finished()
+            self.survey_points.append(p)
 
     def OnEraseBackground(self, evt):
         """Add a picture to the background"""
@@ -181,7 +189,9 @@ class FloorplanPanel(wx.Panel):
                     self.Refresh()
                     return
                 # else success
-                res['%s%s' % (protoname, suffix)] = tmp
+                res['%s%s' % (protoname, suffix)] = {
+                    x: getattr(tmp, x, None) for x in RESULT_FIELDS
+                }
         self.parent.SetStatusText('Running iwconfig...')
         self.Refresh()
         res['iwconfig'] = self.collector.run_iwconfig()
@@ -246,11 +256,12 @@ class FloorplanPanel(wx.Panel):
 
 class MainFrame(wx.Frame):
 
-    def __init__(self, img_path, interface, server, *args, **kw):
+    def __init__(self, img_path, interface, server, resume_file, *args, **kw):
         super(MainFrame, self).__init__(*args, **kw)
         self.img_path = img_path
         self.interface = interface
         self.server = server
+        self.resume_file = resume_file
         self.CreateStatusBar()
         self.pnl = FloorplanPanel(self)
         self.makeMenuBar()
@@ -279,6 +290,8 @@ def parse_args(argv):
     p = argparse.ArgumentParser(description='Sample python script skeleton.')
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
+    p.add_argument('-r', '--resume', dest='resume', type=str, action='store',
+                   default=None, help='Resume from this JSON file')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
     p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
     p.add_argument('IMAGE', type=str, help='Path to background image')
@@ -326,7 +339,8 @@ def main():
 
     app = wx.App()
     frm = MainFrame(
-        args.IMAGE, args.INTERFACE, args.SERVER, None, title='wifi-survey'
+        args.IMAGE, args.INTERFACE, args.SERVER, args.resume,
+        None, title='wifi-survey'
     )
     frm.Show()
     frm.Maximize(True)

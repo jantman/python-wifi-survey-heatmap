@@ -41,11 +41,49 @@ import logging
 import wx
 import json
 
+from iperf3.iperf3 import TestResult
+
 from wifi_survey_heatmap.collector import Collector
 
 FORMAT = "[%(asctime)s %(levelname)s] %(message)s"
 logging.basicConfig(level=logging.WARNING, format=FORMAT)
 logger = logging.getLogger()
+
+
+RESULT_FIELDS = [
+    'error',
+    'time',
+    'timesecs',
+    'protocol',
+    'num_streams',
+    'blksize',
+    'omit',
+    'duration',
+    'sent_bytes',
+    'sent_bps',
+    'received_bytes',
+    'received_bps',
+    'sent_kbps',
+    'sent_Mbps',
+    'sent_kB_s',
+    'sent_MB_s',
+    'received_kbps',
+    'received_Mbps',
+    'received_kB_s',
+    'received_MB_s',
+    'retransmits',
+    'bytes',
+    'bps',
+    'jitter_ms',
+    'kbps',
+    'Mbps',
+    'kB_s',
+    'MB_s',
+    'packets',
+    'lost_packets',
+    'lost_percent',
+    'seconds'
+]
 
 
 class SurveyPoint(object):
@@ -84,6 +122,18 @@ class SurveyPoint(object):
             color = 'red'
         dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawCircle(self.x, self.y, 20)
+
+
+class SafeEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        if isinstance(obj, type(b'')):
+            return obj.decode()
+        if isinstance(obj, TestResult):
+            return {
+                x: getattr(obj, x, None) for x in RESULT_FIELDS
+            }
+        return json.JSONEncoder.default(self, obj)
 
 
 class FloorplanPanel(wx.Panel):
@@ -142,7 +192,8 @@ class FloorplanPanel(wx.Panel):
         )
         self.Refresh()
         res = json.dumps(
-            [x.as_dict for x in self.survey_points]
+            [x.as_dict for x in self.survey_points],
+            cls=SafeEncoder
         )
         with open('result.json', 'w') as fh:
             fh.write(res)
@@ -182,7 +233,7 @@ class FloorplanPanel(wx.Panel):
             self.Refresh()
             return self.run_iperf(count, udp, reverse)
         # else bail out
-        return None
+        return tmp
 
     def on_paint(self, event=None):
         dc = wx.ClientDC(self)

@@ -82,7 +82,8 @@ setup(
     classifiers=classifiers,
     entry_points={
         'console_scripts': [
-            'wifi-scan = wifi_survey_heatmap.scancli:main'
+            'wifi-scan = wifi_survey_heatmap.scancli:main',
+            'wifi-survey = wifi_survey_heatmap.ui:main'
         ]
     },
     cffi_modules=[

@@ -290,7 +290,7 @@ def parse_args(argv):
     this uses the new argparse module instead of optparse
     see: <https://docs.python.org/2/library/argparse.html>
     """
-    p = argparse.ArgumentParser(description='Sample python script skeleton.')
+    p = argparse.ArgumentParser(description='wifi survey data collection UI')
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')

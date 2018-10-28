@@ -43,7 +43,9 @@ with open('README.rst') as file:
 
 requires = [
     'cffi>=1.0.0',
-    'iperf3==0.1.10'
+    'iperf3==0.1.10',
+    'matplotlib==3.0.1',
+    'scipy==1.1.0'
 ]
 
 classifiers = [
@@ -83,7 +85,8 @@ setup(
     entry_points={
         'console_scripts': [
             'wifi-scan = wifi_survey_heatmap.scancli:main',
-            'wifi-survey = wifi_survey_heatmap.ui:main'
+            'wifi-survey = wifi_survey_heatmap.ui:main',
+            'wifi-heatmap = wifi_survey_heatmap.heatmap:main'
         ]
     },
     cffi_modules=[

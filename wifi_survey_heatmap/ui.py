@@ -38,7 +38,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import argparse
 import logging
-import os
+from time import sleep
 import wx
 
 from wifi_survey_heatmap.collector import Collector
@@ -48,54 +48,42 @@ logging.basicConfig(level=logging.WARNING, format=FORMAT)
 logger = logging.getLogger()
 
 
+class SurveyPoint(object):
+
+    def __init__(self, parent, x, y):
+        self.parent = parent
+        self.x = x
+        self.y = y
+        self.is_finished = False
+
+    def set_is_finished(self):
+        self.is_finished = True
+
+    def draw(self, dc):
+        color = 'green'
+        if not self.is_finished:
+            color = 'yellow'
+        dc.SetBrush(wx.Brush(color, wx.SOLID))
+        dc.DrawCircle(self.x, self.y, 20)
+
+
 class FloorplanPanel(wx.Panel):
 
-    def __init__(self, parent, img_path):
-        super(FloorplanPanel, self).__init__(self, parent=parent)
-        self.img_path = img_path
-
-
-class MainFrame(wx.Frame):
-
-    def __init__(self, img_path, *args, **kw):
-        super(MainFrame, self).__init__(*args, **kw)
-        self.pnl = wx.Panel(self)
-        self.img_path = img_path
-        """
-        self.bitmap = wx.Bitmap(img_path)
-        self.canvas = wx.MemoryDC(self.bitmap)
-        text = 'whatever'
-        w, h = self.canvas.GetSize()
-        tw, th = self.canvas.GetTextExtent(text)
-        self.canvas.DrawText(text, (w - tw) / 2, (h - th) / 2)
-        self.static_bitmap = wx.StaticBitmap(self, -1, self.bitmap)
-        """
-
-        # create a menu bar
-        self.makeMenuBar()
-
-        # and a status bar
-        self.CreateStatusBar()
-        self.SetStatusText("Welcome to wxPython!")
-        self.SetBackgroundStyle(wx.BG_STYLE_CUSTOM)
+    def __init__(self, parent):
+        super(FloorplanPanel, self).__init__(parent)
+        self.parent = parent
+        self.img_path = parent.img_path
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
-        self.pnl.Bind(wx.EVT_LEFT_UP, self.onClick)
-
-    def _set_background(self):
-        self.dc = wx.ClientDC(self.pnl)
-        bmp = wx.Bitmap(self.img_path)
-        self.dc.DrawBitmap(bmp, 500, 500)
+        self.Bind(wx.EVT_LEFT_UP, self.onClick)
+        self.Bind(wx.EVT_PAINT, self.on_paint)
+        self.survey_points = []
 
     def OnEraseBackground(self, evt):
-        """
-        Add a picture to the background
-        """
-        # yanked from ColourDB.py
+        """Add a picture to the background"""
         dc = evt.GetDC()
-
         if not dc:
-            dc = wx.ClientDC(self.pnl)
-            rect = self.pnl.GetUpdateRegion().GetBox()
+            dc = wx.ClientDC(self)
+            rect = self.GetUpdateRegion().GetBox()
             dc.SetClippingRect(rect)
         dc.Clear()
         bmp = wx.Bitmap(self.img_path)
@@ -103,18 +91,36 @@ class MainFrame(wx.Frame):
 
     def onClick(self, event):
         pos = event.GetPosition()
-        print('Got click at: %s' % pos)
-        print('Frame size: %s; panel size: %s' % (self.GetSize(), self.pnl.GetSize()))
-        self.SetStatusText('Got click.')
+        self.parent.SetStatusText('Got click at: %s' % pos)
         """
-        self.canvas.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
-        self.canvas.DrawCircle(pos[0], pos[1], 50)
-        self.static_bitmap = wx.StaticBitmap(self, -1, self.bitmap)
-        """
-        self.dc = wx.ClientDC(self.pnl)
-        self.dc.SetBrush(wx.Brush('BLUE', wx.SOLID))
+        self.dc = wx.ClientDC(self)
+        self.dc.SetBrush(wx.Brush('RED', wx.SOLID))
         x, y = pos
-        self.dc.DrawCircle(x, y, 3)
+        self.dc.DrawCircle(x, y, 20)
+        """
+        self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
+        self.Refresh()
+        wx.CallLater(500, self._simulate_survey)
+
+    def _simulate_survey(self):
+        self.survey_points[-1].set_is_finished()
+        self.Refresh()
+
+    def on_paint(self, event=None):
+        dc = wx.ClientDC(self)
+        for p in self.survey_points:
+            p.draw(dc)
+
+
+class MainFrame(wx.Frame):
+
+    def __init__(self, img_path, *args, **kw):
+        super(MainFrame, self).__init__(*args, **kw)
+        self.img_path = img_path
+        self.pnl = FloorplanPanel(self)
+        self.makeMenuBar()
+        self.CreateStatusBar()
+        self.SetStatusText("Welcome to wxPython!")
 
     def makeMenuBar(self):
         fileMenu = wx.Menu()

@@ -169,6 +169,9 @@ class FloorplanPanel(wx.Panel):
         count = 0
         for protoname, udp in {'tcp': False, 'udp': True}.items():
             for suffix, reverse in {'': False, '-reverse': True}.items():
+                if udp and reverse:
+                    logger.warning('Skipping reverse UDP; always fails')
+                    continue
                 count += 1
                 tmp = self.run_iperf(count, udp, reverse)
                 if tmp is None:
@@ -217,7 +220,7 @@ class FloorplanPanel(wx.Panel):
 
     def run_iperf(self, count, udp, reverse):
         self.parent.SetStatusText(
-            'Running iperf %d/4 (udp=%s, reverse=%s)' % (count, udp, reverse)
+            'Running iperf %d/3 (udp=%s, reverse=%s)' % (count, udp, reverse)
         )
         self.Refresh()
         tmp = self.collector.run_iperf(udp, reverse)

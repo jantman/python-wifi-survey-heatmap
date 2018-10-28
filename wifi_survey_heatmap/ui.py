@@ -38,8 +38,8 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import argparse
 import logging
-from time import sleep
 import wx
+import json
 
 from wifi_survey_heatmap.collector import Collector
 
@@ -55,6 +55,23 @@ class SurveyPoint(object):
         self.x = x
         self.y = y
         self.is_finished = False
+        self.is_failed = False
+        self.result = {}
+
+    def set_result(self, res):
+        self.result = res
+
+    @property
+    def as_dict(self):
+        return {
+            'x': self.x,
+            'y': self.y,
+            'result': self.result,
+            'failed': self.is_failed
+        }
+
+    def set_is_failed(self):
+        self.is_failed = True
 
     def set_is_finished(self):
         self.is_finished = True
@@ -63,6 +80,8 @@ class SurveyPoint(object):
         color = 'green'
         if not self.is_finished:
             color = 'yellow'
+        if self.is_failed:
+            color = 'red'
         dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawCircle(self.x, self.y, 20)
 
@@ -77,6 +96,8 @@ class FloorplanPanel(wx.Panel):
         self.Bind(wx.EVT_LEFT_UP, self.onClick)
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.survey_points = []
+        self.collector = Collector(self.parent.interface, self.parent.server)
+        self.parent.SetStatusText("Ready.")
 
     def OnEraseBackground(self, evt):
         """Add a picture to the background"""
@@ -92,19 +113,44 @@ class FloorplanPanel(wx.Panel):
     def onClick(self, event):
         pos = event.GetPosition()
         self.parent.SetStatusText('Got click at: %s' % pos)
-        """
-        self.dc = wx.ClientDC(self)
-        self.dc.SetBrush(wx.Brush('RED', wx.SOLID))
-        x, y = pos
-        self.dc.DrawCircle(x, y, 20)
-        """
         self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
         self.Refresh()
-        wx.CallLater(500, self._simulate_survey)
-
-    def _simulate_survey(self):
-        self.survey_points[-1].set_is_finished()
+        res = {
+            'tcp': self.run_iperf(1, False, False),
+            'tcp-reverse': self.run_iperf(2, False, True),
+            'udp': self.run_iperf(3, True, False),
+            'udp-reverse': self.run_iperf(4, True, True),
+            'iwconfig': {},
+            'iwscan': {}
+        }
+        self.parent.SetStatusText('Running iwconfig...')
         self.Refresh()
+        res['iwconfig'] = self.collector.run_iwconfig()
+        self.parent.SetStatusText('Running iwscan...')
+        self.Refresh()
+        res['iwscan'] = self.collector.run_iwscan()
+        self.survey_points[-1].set_result(res)
+        self.survey_points[-1].set_is_finished()
+        self.parent.SetStatusText(
+            'Saving to: result.json'
+        )
+        self.Refresh()
+        res = json.dumps(
+            [x.as_dict for x in self.survey_points]
+        )
+        with open('result.json', 'w') as fh:
+            fh.write(res)
+        self.parent.SetStatusText(
+            'Saved to result.json; ready...'
+        )
+        self.Refresh()
+
+    def run_iperf(self, count, udp, reverse):
+        self.parent.SetStatusText(
+            'Running iperf 1/4 (udp=False, reverse=False)'
+        )
+        self.Refresh()
+        return self.collector.run_iperf(udp, reverse)
 
     def on_paint(self, event=None):
         dc = wx.ClientDC(self)
@@ -114,13 +160,14 @@ class FloorplanPanel(wx.Panel):
 
 class MainFrame(wx.Frame):
 
-    def __init__(self, img_path, *args, **kw):
+    def __init__(self, img_path, interface, server, *args, **kw):
         super(MainFrame, self).__init__(*args, **kw)
         self.img_path = img_path
+        self.interface = interface
+        self.server = server
+        self.CreateStatusBar()
         self.pnl = FloorplanPanel(self)
         self.makeMenuBar()
-        self.CreateStatusBar()
-        self.SetStatusText("Welcome to wxPython!")
 
     def makeMenuBar(self):
         fileMenu = wx.Menu()
@@ -192,7 +239,9 @@ def main():
         set_log_info()
 
     app = wx.App()
-    frm = MainFrame(args.IMAGE, None, title='wifi-survey')
+    frm = MainFrame(
+        args.IMAGE, args.INTERFACE, args.SERVER, None, title='wifi-survey'
+    )
     frm.Show()
     frm.Maximize(True)
     frm.SetStatusText('%s' % frm.pnl.GetSize())

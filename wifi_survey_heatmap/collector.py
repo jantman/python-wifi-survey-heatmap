@@ -57,7 +57,7 @@ class Collector(object):
         self._interface_name = interface_name
         self._iperf_server = server_addr
 
-    def _run_iperf(self, udp=False, reverse=False):
+    def run_iperf(self, udp=False, reverse=False):
         client = iperf3.Client()
         client.server_hostname = self._iperf_server
         client.port = 5201
@@ -82,9 +82,24 @@ class Collector(object):
                 'client_to_server': False,
                 'server_to_client': True
             }.items():
-                res[proto_name][dest_name] = self._run_iperf(udp, reverse)
+                tmp = self.run_iperf(udp, reverse)
+                if 'end' in tmp.json:
+                    tmp = tmp.json['end']
+                res[proto_name][dest_name] = tmp
                 logger.debug('Sleeping 2s before next iperf run')
                 sleep(2)
+        return res
+
+    def run_iwconfig(self):
+        logger.debug('Getting iwconfig...')
+        res = get_iwconfig(self._interface_name)
+        logger.debug('iwconfig result: %s', res)
+        return res
+
+    def run_iwscan(self):
+        logger.debug('Scanning...')
+        res = scan(self._interface_name)
+        logger.debug('scan result: %s', res)
         return res
 
     def run(self):

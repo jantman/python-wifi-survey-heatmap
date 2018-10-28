@@ -65,3 +65,4 @@ bin/
 include/
 
 .idea/
+result.json

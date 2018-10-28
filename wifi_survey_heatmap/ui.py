@@ -115,14 +115,20 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Got click at: %s' % pos)
         self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
         self.Refresh()
-        res = {
-            'tcp': self.run_iperf(1, False, False),
-            'tcp-reverse': self.run_iperf(2, False, True),
-            'udp': self.run_iperf(3, True, False),
-            'udp-reverse': self.run_iperf(4, True, True),
-            'iwconfig': {},
-            'iwscan': {}
-        }
+        res = {}
+        count = 0
+        for protoname, udp in {'tcp': False, 'udp': True}.items():
+            for suffix, reverse in {'': False, '-reverse': True}.items():
+                count += 1
+                tmp = self.run_iperf(count, udp, reverse)
+                if tmp is None:
+                    # bail out; abort this survey point
+                    del self.survey_points[-1]
+                    self.parent.SetStatusText('Aborted; ready to retry...')
+                    self.Refresh()
+                    return
+                # else success
+                res['%s%s' % (protoname, suffix)] = tmp
         self.parent.SetStatusText('Running iwconfig...')
         self.Refresh()
         res['iwconfig'] = self.collector.run_iwconfig()
@@ -145,12 +151,38 @@ class FloorplanPanel(wx.Panel):
         )
         self.Refresh()
 
+    def warn(self, message, caption='Warning!'):
+        dlg = wx.MessageDialog(self.parent, message, caption,
+                               wx.OK | wx.ICON_WARNING)
+        dlg.ShowModal()
+        dlg.Destroy()
+
+    def YesNo(self, question, caption='Yes or no?'):
+        dlg = wx.MessageDialog(self.parent, question, caption,
+                               wx.YES_NO | wx.ICON_QUESTION)
+        result = dlg.ShowModal() == wx.ID_YES
+        dlg.Destroy()
+        return result
+
     def run_iperf(self, count, udp, reverse):
         self.parent.SetStatusText(
-            'Running iperf 1/4 (udp=False, reverse=False)'
+            'Running iperf %d/4 (udp=%s, reverse=%s)' % (count, udp, reverse)
         )
         self.Refresh()
-        return self.collector.run_iperf(udp, reverse)
+        tmp = self.collector.run_iperf(udp, reverse)
+        if tmp.error is None:
+            return tmp
+        # else this is an error
+        if tmp.error.startswith('unable to connect to server'):
+            self.warn(
+                'ERROR: Unable to connect to iperf server. Aborting.'
+            )
+            return None
+        if self.YesNo('iperf error: %s. Retry?' % tmp.error):
+            self.Refresh()
+            return self.run_iperf(count, udp, reverse)
+        # else bail out
+        return None
 
     def on_paint(self, event=None):
         dc = wx.ClientDC(self)

@@ -61,19 +61,23 @@ class HeatMapGenerator(object):
 
     def __init__(self, image_path, title):
         self._image_path = image_path
-        self._image_width = 2544
-        self._image_height = 1691
         self._title = title
         logger.debug(
             'Initialized HeatMapGenerator; image_path=%s title=%s',
             self._image_path, self._title
+        )
+        self._layout = imread(self._image_path)
+        self._image_width = len(self._layout[0])
+        self._image_height = len(self._layout) - 1
+        logger.debug(
+            'Loaded image with width=%d height=%d',
+            self._image_width, self._image_height
         )
         with open('%s.json' % self._title, 'r') as fh:
             self._data = json.loads(fh.read())
         logger.info('Loaded %d measurement points', len(self._data))
 
     def generate(self):
-        layout = imread(self._image_path)
         s_beacons = ['2e:20', 'f6:70', '5b:30', '74:c0', 'f5:90', '16:a0']
         a = defaultdict(list)
         with open('%s.csv' % self._title, 'r') as csvfile:
@@ -86,18 +90,16 @@ class HeatMapGenerator(object):
                         rssis.append(int(v))
                 a['max_rssi'].append(max(rssis))
 
-        grid_width = 797
-        grid_height = 530
-
+        grid_width = int(self._image_width / 3.19)
+        grid_height = int(self._image_height / 3.19)
         num_x = int(self._image_width / 4)
         num_y = int(num_x / (self._image_width / self._image_height))
-
         x = np.linspace(0, grid_width, num_x)
         y = np.linspace(0, grid_height, num_y)
         gx, gy = np.meshgrid(x, y)
         gx, gy = gx.flatten(), gy.flatten()
-        self._max_plot(
-            a, 'max_rssi', 'Max RSSI', gx, gy, num_x, num_y, layout
+        self._plot(
+            a, 'max_rssi', 'Max RSSI', gx, gy, num_x, num_y
         )
 
     def _add_inner_title(self, ax, title, loc, size=None, **kwargs):
@@ -114,7 +116,7 @@ class HeatMapGenerator(object):
         )
         return at
 
-    def _max_plot(self, a, key, title, gx, gy, num_x, num_y, layout):
+    def _plot(self, a, key, title, gx, gy, num_x, num_y):
         pp.rcParams['figure.figsize'] = (
             self._image_width / 300, self._image_height / 300
         )
@@ -135,8 +137,10 @@ class HeatMapGenerator(object):
         # pp.contourf(z, levels, alpha=0.5)
         # pp.contour(z, levels, linewidths=5, alpha=0.5)
         pp.colorbar(image)
-        pp.imshow(layout, interpolation='bicubic', zorder=100)
-        pp.savefig('%s_%s.png' % (key, self._title), dpi=300)
+        pp.imshow(self._layout, interpolation='bicubic', zorder=100)
+        fname = '%s_%s.png' % (key, self._title)
+        logger.info('Writing plot to: %s', fname)
+        pp.savefig(fname, dpi=300)
 
 
 def parse_args(argv):

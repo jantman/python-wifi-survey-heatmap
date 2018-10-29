@@ -84,7 +84,13 @@ class HeatMapGenerator(object):
             a['x'].append(row['x'])
             a['y'].append(row['y'])
             a['rssi'].append(row['result']['iwconfig']['stats']['level'])
-            row['rssi'] = row['result']['iwconfig']['stats']['level']
+        for x, y in [
+            (0, 0), (0, self._image_height),
+            (self._image_width, 0), (self._image_width, self._image_height)
+        ]:
+            a['x'].append(x)
+            a['y'].append(y)
+            a['rssi'].append(min(a['rssi']))
         logger.debug('a=%s', a)
         num_x = int(self._image_width / 4)
         num_y = int(num_x / (self._image_width / self._image_height))
@@ -138,11 +144,11 @@ class HeatMapGenerator(object):
         pp.colorbar(image)
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
         # begin plotting points
-        for row in self._data:
+        for idx in range(0, len(a['x'])):
             pp.plot(
-                row['x'], row['y'],
+                a['x'][idx], a['y'][idx],
                 marker='o', markeredgecolor='black', markeredgewidth=1,
-                markerfacecolor=mapper.to_rgba(row[key]), markersize=6
+                markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
             )
         # end plotting points
         fname = '%s_%s.png' % (key, self._title)

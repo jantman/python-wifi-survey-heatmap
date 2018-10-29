@@ -43,13 +43,14 @@ import json
 import csv
 from collections import defaultdict
 import numpy as np
-import matplotlib.mlab as ml
+import matplotlib.cm as cm
 import matplotlib.pyplot as pp
 from mpl_toolkits.axes_grid1 import AxesGrid
 from scipy.interpolate import Rbf
 from pylab import imread, imshow
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
+import matplotlib
 
 
 FORMAT = "[%(asctime)s %(levelname)s] %(message)s"
@@ -83,6 +84,7 @@ class HeatMapGenerator(object):
             a['x'].append(row['x'])
             a['y'].append(row['y'])
             a['rssi'].append(row['result']['iwconfig']['stats']['level'])
+            row['rssi'] = row['result']['iwconfig']['stats']['level']
         logger.debug('a=%s', a)
         num_x = int(self._image_width / 4)
         num_y = int(num_x / (self._image_width / self._image_height))
@@ -122,15 +124,27 @@ class HeatMapGenerator(object):
         z = z.reshape((num_y, num_x))
         # Render the interpolated data to the plot
         pp.axis('off')
+        # begin color mapping
+        norm = matplotlib.colors.Normalize(
+            vmin=min(a[key]), vmax=max(a[key]), clip=True
+        )
+        mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu_r')
+        # end color mapping
         image = pp.imshow(
             z,
             extent=(0, self._image_width, self._image_height, 0),
             cmap='RdYlBu_r', alpha=0.5, zorder=100
         )
-        # pp.contourf(z, levels, alpha=0.5)
-        # pp.contour(z, levels, linewidths=5, alpha=0.5)
         pp.colorbar(image)
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
+        # begin plotting points
+        for row in self._data:
+            pp.plot(
+                row['x'], row['y'],
+                marker='o', markeredgecolor='black', markeredgewidth=1,
+                markerfacecolor=mapper.to_rgba(row[key]), markersize=6
+            )
+        # end plotting points
         fname = '%s_%s.png' % (key, self._title)
         logger.info('Writing plot to: %s', fname)
         #pp.savefig(fname, dpi=300)

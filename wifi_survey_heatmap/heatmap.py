@@ -123,18 +123,18 @@ class HeatMapGenerator(object):
         # Render the interpolated data to the plot
         pp.axis('off')
         image = pp.imshow(
-            #z, vmin=-85, vmax=-25,
             z,
             extent=(0, self._image_width, self._image_height, 0),
-            cmap='RdYlBu_r', alpha=1
+            cmap='RdYlBu_r', alpha=0.5, zorder=100
         )
         # pp.contourf(z, levels, alpha=0.5)
         # pp.contour(z, levels, linewidths=5, alpha=0.5)
         pp.colorbar(image)
-        pp.imshow(self._layout, interpolation='bicubic', zorder=100)
+        pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
         fname = '%s_%s.png' % (key, self._title)
         logger.info('Writing plot to: %s', fname)
-        pp.savefig(fname, dpi=300)
+        #pp.savefig(fname, dpi=300)
+        pp.show()
 
 
 def parse_args(argv):

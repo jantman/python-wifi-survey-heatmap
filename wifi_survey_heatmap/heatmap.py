@@ -193,13 +193,6 @@ class HeatMapGenerator(object):
         self, a, s_beacons, interpolate, gx, gy, num_x, num_y, x, y, levels,
             layout
     ):
-        # Get the maximum RSSI seen for each beacon
-        #max_rssi = [max(i) for i in a[s_beacons]]
-        """
-        max_rssi = []
-        for row in self._rows:
-            max_rssi.append(max([row[bcn] for bcn in s_beacons]))
-        """
         max_rssi = a['max_rssi']
         logger.debug('Max RSSIs: %s', a['max_rssi'])
         pp.title("Maximum RSSI seen for each beacon")
@@ -223,7 +216,8 @@ class HeatMapGenerator(object):
             pp.contourf(x, y, z, levels, alpha=0.5)
         pp.colorbar(image)
         pp.imshow(layout, interpolation='bicubic', zorder=100)
-        pp.show()
+        logger.debug('Size in inches=%s', pp.get_size_inches())
+        pp.savefig('max_%s.png' % self._title)
 
 
 def parse_args(argv):

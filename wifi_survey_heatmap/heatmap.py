@@ -78,28 +78,21 @@ class HeatMapGenerator(object):
         logger.info('Loaded %d measurement points', len(self._data))
 
     def generate(self):
-        s_beacons = ['2e:20', 'f6:70', '5b:30', '74:c0', 'f5:90', '16:a0']
         a = defaultdict(list)
-        with open('%s.csv' % self._title, 'r') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                rssis = []
-                for k, v in row.items():
-                    a[k].append(int(v))
-                    if k in s_beacons:
-                        rssis.append(int(v))
-                a['max_rssi'].append(max(rssis))
-
-        grid_width = int(self._image_width / 3.19)
-        grid_height = int(self._image_height / 3.19)
+        for row in self._data:
+            a['x'].append(row['x'])
+            a['y'].append(row['y'])
+            a['rssi'].append(row['result']['iwconfig']['stats']['level'])
+        logger.debug('a=%s', a)
         num_x = int(self._image_width / 4)
         num_y = int(num_x / (self._image_width / self._image_height))
-        x = np.linspace(0, grid_width, num_x)
-        y = np.linspace(0, grid_height, num_y)
+        logger.debug('num_x=%d num_y=%s', num_x, num_y)
+        x = np.linspace(0, self._image_width, num_x)
+        y = np.linspace(0, self._image_height, num_y)
         gx, gy = np.meshgrid(x, y)
         gx, gy = gx.flatten(), gy.flatten()
         self._plot(
-            a, 'max_rssi', 'Max RSSI', gx, gy, num_x, num_y
+            a, 'rssi', 'RSSI (level)', gx, gy, num_x, num_y
         )
 
     def _add_inner_title(self, ax, title, loc, size=None, **kwargs):
@@ -123,14 +116,15 @@ class HeatMapGenerator(object):
         pp.title(title)
         # Interpolate the data
         rbf = Rbf(
-            a['Drawing X'], a['Drawing Y'], a[key], function='linear'
+            a['x'], a['y'], a[key], function='linear'
         )
         z = rbf(gx, gy)
         z = z.reshape((num_y, num_x))
         # Render the interpolated data to the plot
         pp.axis('off')
         image = pp.imshow(
-            z, vmin=-85, vmax=-25,
+            #z, vmin=-85, vmax=-25,
+            z,
             extent=(0, self._image_width, self._image_height, 0),
             cmap='RdYlBu_r', alpha=1
         )

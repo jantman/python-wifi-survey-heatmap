@@ -60,9 +60,10 @@ logger = logging.getLogger()
 
 class HeatMapGenerator(object):
 
-    def __init__(self, image_path, title):
+    def __init__(self, image_path, title, ignore_ssids=[]):
         self._image_path = image_path
         self._title = title
+        self._ignore_ssids = ignore_ssids
         logger.debug(
             'Initialized HeatMapGenerator; image_path=%s title=%s',
             self._image_path, self._title
@@ -118,6 +119,14 @@ class HeatMapGenerator(object):
             self._plot(
                 a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
             )
+
+    def _plot_channels(self):
+        channels = defaultdict(int)
+        for row in self._data:
+            for scan in row['result']['iwscan']:
+                if scan['ESSID'] in self._ignore_ssids:
+                    continue
+                channels[scan['Frequency']] += scan['stats']['quality']
 
     def _add_inner_title(self, ax, title, loc, size=None, **kwargs):
         if size is None:
@@ -183,6 +192,8 @@ def parse_args(argv):
     p = argparse.ArgumentParser(description='wifi survey heatmap generator')
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
+    p.add_argument('-i', '--ignore', dest='ignore', action='append',
+                   default=[], help='SSIDs to ignore from channel graph')
     p.add_argument('IMAGE', type=str, help='Path to background image')
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
@@ -229,7 +240,9 @@ def main():
     elif args.verbose == 1:
         set_log_info()
 
-    HeatMapGenerator(args.IMAGE, args.TITLE).generate()
+    HeatMapGenerator(
+        args.IMAGE, args.TITLE, ignore_ssids=args.ignore
+    ).generate()
 
 
 if __name__ == '__main__':

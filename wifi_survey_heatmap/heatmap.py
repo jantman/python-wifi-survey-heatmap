@@ -40,12 +40,10 @@ import argparse
 import logging
 import json
 
-import csv
 from collections import defaultdict
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.pyplot as pp
-from mpl_toolkits.axes_grid1 import AxesGrid
 from scipy.interpolate import Rbf
 from pylab import imread, imshow
 from matplotlib.offsetbox import AnchoredText
@@ -56,6 +54,74 @@ import matplotlib
 FORMAT = "[%(asctime)s %(levelname)s] %(message)s"
 logging.basicConfig(level=logging.WARNING, format=FORMAT)
 logger = logging.getLogger()
+
+
+WIFI_CHANNELS = {
+    # center frequency to (channel, bandwidth MHz)
+    2412: (1, 20),
+    2417: (2, 20),
+    2422: (3, 20),
+    2427: (4, 20),
+    2432: (5, 20),
+    2437: (6, 20),
+    2442: (7, 20),
+    2447: (8, 20),
+    2452: (9, 20),
+    2457: (10, 20),
+    2462: (11, 20),
+    2467: (12, 20),
+    2472: (13, 20),
+    2484: (14, 20),
+    5160: (32, 20),
+    5170: (34, 40),
+    5180: (36, 20),
+    5190: (38, 40),
+    5200: (40, 20),
+    5210: (42, 80),
+    5220: (44, 20),
+    5230: (46, 40),
+    5240: (48, 20),
+    5250: (50, 160),
+    5260: (52, 20),
+    5270: (54, 40),
+    5280: (56, 20),
+    5290: (58, 80),
+    5300: (60, 20),
+    5310: (62, 40),
+    5320: (64, 20),
+    5340: (68, 20),
+    5480: (96, 20),
+    5500: (100, 20),
+    5510: (102, 40),
+    5520: (104, 20),
+    5530: (106, 80),
+    5540: (108, 20),
+    5550: (110, 40),
+    5560: (112, 20),
+    5570: (114, 160),
+    5580: (116, 20),
+    5590: (118, 40),
+    5600: (120, 20),
+    5610: (122, 80),
+    5620: (124, 20),
+    5630: (126, 40),
+    5640: (128, 20),
+    5660: (132, 20),
+    5670: (134, 40),
+    5680: (136, 20),
+    5690: (138, 80),
+    5700: (140, 20),
+    5710: (142, 40),
+    5720: (144, 20),
+    5745: (149, 20),
+    5755: (151, 40),
+    5765: (153, 20),
+    5775: (155, 80),
+    5785: (157, 20),
+    5795: (159, 40),
+    5805: (161, 20),
+    5825: (165, 20)
+}
 
 
 class HeatMapGenerator(object):
@@ -102,6 +168,7 @@ class HeatMapGenerator(object):
                 if k in ['x', 'y']:
                     continue
                 a[k].append(min(a[k]))
+        self._plot_channels()
         num_x = int(self._image_width / 4)
         num_y = int(num_x / (self._image_width / self._image_height))
         x = np.linspace(0, self._image_width, num_x)
@@ -121,12 +188,19 @@ class HeatMapGenerator(object):
             )
 
     def _plot_channels(self):
-        channels = defaultdict(int)
+        channels = defaultdict(list)
         for row in self._data:
             for scan in row['result']['iwscan']:
                 if scan['ESSID'] in self._ignore_ssids:
                     continue
-                channels[scan['Frequency']] += scan['stats']['quality']
+                channels[scan['Frequency'] / 1000000].append(
+                    scan['stats']['quality']
+                )
+        for freq in channels.keys():
+            channels[freq] = sum(channels[freq]) / len(channels[freq])
+        print(channels)
+        raise NotImplementedError()
+        pp.close('all')
 
     def _add_inner_title(self, ax, title, loc, size=None, **kwargs):
         if size is None:

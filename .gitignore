@@ -67,3 +67,8 @@ include/
 .idea/
 result.json
 *.json
+jitter_*.png
+quality_*.png
+rssi_*.png
+tcp_*.png
+udp_*.png

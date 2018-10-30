@@ -1,6 +1,10 @@
 python-wifi-survey-heatmap
 ==========================
 
+.. image:: https://www.repostatus.org/badges/latest/wip.svg
+   :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
+   :target: https://www.repostatus.org/#wip
+
 A Python application for Linux machines to perform WiFi site surveys and present
 the results as a heatmap overlayed on a floorplan.
 
@@ -49,7 +53,7 @@ First connect to the network that you want to survey. Then, run ``sudo wifi-surv
 
 * ``INTERFACE`` is the name of your Wireless interface (e.g. ``wlp3s0``)
 * ``SERVER`` is the IP address or hostname of the iperf3 server
-* ``PNG`` is the path to a floorplan PNG file to use as the background for the map; see `example_floorplan.png <example_floorplan.png>`_ for an example. In order to compare multiple surveys it may be helpful to pre-mark your measurement points on the floorplan, like `example_with_marks.png <example_with_marks.png`_. The UI currently loads the PNG at exact size, so it may help to scale your PNG file to your display.
+* ``PNG`` is the path to a floorplan PNG file to use as the background for the map; see `examples/example_floorplan.png <examples/example_floorplan.png>`_ for an example. In order to compare multiple surveys it may be helpful to pre-mark your measurement points on the floorplan, like `examples/example_with_marks.png <examples/example_with_marks.png`_. The UI currently loads the PNG at exact size, so it may help to scale your PNG file to your display.
 * ``Title`` is the title for the survey (such as the network name or AP location), which will also be used to name the data file and output files.
 
 If ``Title.json`` already exists, the data from it will be pre-loaded into the application; this can be used to resume a survey.
@@ -62,3 +66,77 @@ Heatmap Generation
 ++++++++++++++++++
 
 Once you've performed a survey with a given title and the results are saved in ``Title.json``, run ``wifi-heatmap PNG Title`` to generate heatmap files in the current directory. This process does not require (and shouldn't have) root/sudo and operates only on the JSON data file. For this, it will look better if you use a PNG without the measurement location marks.
+
+The end result of this process for a given survey (Title) should be XX ``.png`` images in your current directory:
+
+* **channels24_TITLE.png** - Bar graph of average signal quality of APs seen on 2.4 GHz channels, by channel. Useful for visualizing channel contention. (Based on 20 MHz channel bandwidth)
+* **channels5_TITLE.png** - Bar graph of average signal quality of APs seen on 5 GHz channels, by channel. Useful for visualizing channel contention. (Based on per-channel bandwidth from 20 to 160 MHz)
+* **jitter_TITLE.png** - Heatmap based on UDP jitter measurement in milliseconds.
+* **quality_TITLE.png** - Heatmap based on iwconfig's "quality" metric.
+* **rssi_TITLE.png** - Heatmap based on iwconfig's signal strength (rssi) metric.
+* **tcp_download_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, downloading from server to client.
+* **tcp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, uploading from client to server.
+* **udp_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, UDP, uploading from client to server.
+
+Examples
+--------
+
+Floorplan
++++++++++
+
+.. image:: examples/example_floorplan.png
+   :alt: example floorplan image
+
+Floorplan with Measurement Marks
+++++++++++++++++++++++++++++++++
+
+.. image:: examples/example_with_marks.png
+  :alt: example floorplan image with measurement marks
+
+2.4 GHz Channels
+++++++++++++++++
+
+.. image:: examples/channels24_WAP1.png
+   :alt: example 2.4 GHz channel usage
+
+5 GHz Channels
+++++++++++++++
+
+.. image:: examples/channels5_WAP1.png
+   :alt: example 5 GHz channel usage
+
+Jitter
+++++++
+
+.. image:: examples/jitter_WAP1.png
+   :alt: example jitter heatmap
+
+Quality
++++++++
+
+.. image:: examples/quality_WAP1.png
+   :alt: example quality heatmap
+
+RSSI / Signal Strength
+++++++++++++++++++++++
+
+.. image:: examples/rssi_WAP1.png
+   :alt: example rssi heatmap
+
+TCP Download Speed (Mbps)
++++++++++++++++++++++++++
+
+.. image:: examples/tcp_download_Mbps_WAP1.png
+   :alt: example tcp download heatmap
+
+TCP Upload Speed (Mbps)
++++++++++++++++++++++++
+
+.. image:: examples/tcp_upload_Mbps_WAP1.png
+   :alt: example tcp upload heatmap
+
+UDP Upload Speed (Mbps)
++++++++++++++++++++++++
+
+.. image:: examples/udp_Mbps_WAP1.png
+   :alt: example udp upload heatmap

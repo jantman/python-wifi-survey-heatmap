@@ -84,24 +84,40 @@ class HeatMapGenerator(object):
             a['x'].append(row['x'])
             a['y'].append(row['y'])
             a['rssi'].append(row['result']['iwconfig']['stats']['level'])
+            a['quality'].append(row['result']['iwconfig']['stats']['quality'])
+            a['tcp_upload_Mbps'].append(row['result']['tcp']['sent_Mbps'])
+            a['tcp_download_Mbps'].append(
+                row['result']['tcp-reverse']['received_Mbps']
+            )
+            a['udp_Mbps'].append(row['result']['udp']['Mbps'])
+            a['jitter'].append(row['result']['udp']['jitter_ms'])
         for x, y in [
             (0, 0), (0, self._image_height),
             (self._image_width, 0), (self._image_width, self._image_height)
         ]:
             a['x'].append(x)
             a['y'].append(y)
-            a['rssi'].append(min(a['rssi']))
-        logger.debug('a=%s', a)
+            for k in a.keys():
+                if k in ['x', 'y']:
+                    continue
+                a[k].append(min(a[k]))
         num_x = int(self._image_width / 4)
         num_y = int(num_x / (self._image_width / self._image_height))
-        logger.debug('num_x=%d num_y=%s', num_x, num_y)
         x = np.linspace(0, self._image_width, num_x)
         y = np.linspace(0, self._image_height, num_y)
         gx, gy = np.meshgrid(x, y)
         gx, gy = gx.flatten(), gy.flatten()
-        self._plot(
-            a, 'rssi', 'RSSI (level)', gx, gy, num_x, num_y
-        )
+        for k, ptitle in {
+            'rssi': 'RSSI (level)',
+            'quality': 'iwstats Quality',
+            'tcp_upload_Mbps': 'TCP Upload Mbps',
+            'tcp_download_Mbps': 'TCP Download Mbps',
+            'udp_Mbps': 'UDP Upload Mbps',
+            'jitter': 'UDP Jitter (ms)'
+        }.items():
+            self._plot(
+                a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
+            )
 
     def _add_inner_title(self, ax, title, loc, size=None, **kwargs):
         if size is None:
@@ -153,8 +169,8 @@ class HeatMapGenerator(object):
         # end plotting points
         fname = '%s_%s.png' % (key, self._title)
         logger.info('Writing plot to: %s', fname)
-        #pp.savefig(fname, dpi=300)
-        pp.show()
+        pp.savefig(fname, dpi=300)
+        pp.close('all')
 
 
 def parse_args(argv):

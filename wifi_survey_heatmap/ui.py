@@ -120,7 +120,12 @@ class SurveyPoint(object):
         if self.is_failed:
             color = 'red'
         dc.SetBrush(wx.Brush(color, wx.SOLID))
-        dc.DrawCircle(self.x, self.y, 20)
+
+        window_size = dc.GetSize()
+        relposx = self.x * window_size[0]
+        relposy = self.y * window_size[1]
+
+        dc.DrawCircle(relposx, relposy, 20)
 
 
 class SafeEncoder(json.JSONEncoder):
@@ -165,13 +170,23 @@ class FloorplanPanel(wx.Panel):
             rect = self.GetUpdateRegion().GetBox()
             dc.SetClippingRect(rect)
         dc.Clear()
+        
         bmp = wx.Bitmap(self.img_path)
+        window_size = self.GetSize()
+        image = wx.Bitmap.ConvertToImage(bmp)
+        image = image.Scale(window_size[0], window_size[1], wx.IMAGE_QUALITY_HIGH)
+        bmp = wx.Bitmap(image)
+
         dc.DrawBitmap(bmp, 0, 0)
 
     def onClick(self, event):
         pos = event.GetPosition()
         self.parent.SetStatusText('Got click at: %s' % pos)
-        self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
+        window_size = self.GetSize()
+        relposx = (pos[0] / window_size[0])
+        relposy = (pos[1] / window_size[1])
+        self.survey_points.append(SurveyPoint(self, relposx, relposy))
+        
         self.Refresh()
         res = {}
         count = 0

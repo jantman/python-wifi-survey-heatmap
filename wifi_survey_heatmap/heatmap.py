@@ -148,8 +148,8 @@ class HeatMapGenerator(object):
     def generate(self):
         a = defaultdict(list)
         for row in self._data:
-            a['x'].append(row['x'])
-            a['y'].append(row['y'])
+            a['x'].append((int)(row['x']*self._image_width))
+            a['y'].append((int)(row['y']*self._image_height))
             a['rssi'].append(row['result']['iwconfig']['stats']['level'])
             a['quality'].append(row['result']['iwconfig']['stats']['quality'])
             a['tcp_upload_Mbps'].append(row['result']['tcp']['sent_Mbps'])

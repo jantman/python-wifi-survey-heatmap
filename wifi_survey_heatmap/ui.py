@@ -344,23 +344,26 @@ def set_log_level_format(level, format):
 
 
 def main():
-    args = parse_args(sys.argv[1:])
+    if(os.getuid() == 0):
+        args = parse_args(sys.argv[1:])
 
-    # set logging level
-    if args.verbose > 1:
-        set_log_debug()
-    elif args.verbose == 1:
-        set_log_info()
+        # set logging level
+        if args.verbose > 1:
+            set_log_debug()
+        elif args.verbose == 1:
+            set_log_info()
 
-    app = wx.App()
-    frm = MainFrame(
-        args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE,
-        None, title='wifi-survey: %s' % args.TITLE
-    )
-    frm.Show()
-    frm.Maximize(True)
-    frm.SetStatusText('%s' % frm.pnl.GetSize())
-    app.MainLoop()
+        app = wx.App()
+        frm = MainFrame(
+            args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE,
+            None, title='wifi-survey: %s' % args.TITLE
+        )
+        frm.Show()
+        frm.Maximize(True)
+        frm.SetStatusText('%s' % frm.pnl.GetSize())
+        app.MainLoop()
+    else:
+        print("You should be root to run the scans")
 
 
 if __name__ == '__main__':

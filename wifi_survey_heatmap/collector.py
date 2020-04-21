@@ -43,6 +43,9 @@ from wifi_survey_heatmap.vendor.iwlib.iwlist import scan
 
 import iperf3
 
+from statistics import mean
+import time 
+
 logger = logging.getLogger(__name__)
 
 
@@ -98,7 +101,29 @@ class Collector(object):
 
     def run_iwscan(self):
         logger.debug('Scanning...')
-        res = scan(self._interface_name)
+        #execute mulitple scans to filter peaks
+        results = {}
+        for i in range(10):
+            res = scan(self._interface_name)
+            for r in res:
+                ap = r["Access Point"].decode('utf-8')
+                if results.get(ap) :
+                    results[ap].append(r)
+                else:
+                    results[ap] = [r]
+            time.sleep(0.5)
+        filtered_results = []
+        for ap in results.keys():
+            avg_quality = mean([data["stats"]["quality"] for data in results[ap]])
+            avg_level = mean([data["stats"]["level"] for data in results[ap]])
+            avg_noise = mean([data["stats"]["noise"] for data in results[ap]])
+            avg_updated = mean([data["stats"]["updated"] for data in results[ap]])
+            filtered_results.append({'Mode': results[ap][0]["Mode"],
+                                    'Frequency': results[ap][0]["Frequency"],
+                                    'ESSID': results[ap][0]["ESSID"],
+                                    'Access Point': results[ap][0]["Access Point"],
+                                    'BitRate': results[ap][0]["BitRate"],
+                                    'stats': {'quality': avg_quality, 'level': avg_level, 'noise': avg_noise, 'updated': avg_updated}})
         logger.debug('scan result: %s', res)
         return res
 

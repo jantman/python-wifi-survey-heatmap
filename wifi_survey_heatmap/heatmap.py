@@ -126,9 +126,10 @@ WIFI_CHANNELS = {
 
 class HeatMapGenerator(object):
 
-    def __init__(self, image_path, title, ignore_ssids=[]):
+    def __init__(self, image_path, title, ssid, ignore_ssids=[]):
         self._image_path = image_path
         self._title = title
+        self._ssid = ssid
         self._ignore_ssids = ignore_ssids
         logger.debug(
             'Initialized HeatMapGenerator; image_path=%s title=%s',
@@ -151,7 +152,16 @@ class HeatMapGenerator(object):
             a['x'].append((int)(row['x']*self._image_width))
             a['y'].append((int)(row['y']*self._image_height))
             a['rssi'].append(row['result']['iwconfig']['stats']['level'])
-            a['quality'].append(row['result']['iwconfig']['stats']['quality'])
+            if(self._ssid == ''):
+                a['quality'].append(row['result']['iwconfig']['stats']['quality'])
+            else:
+                quals = [scanresult['stats']['quality'] for scanresult in row['result']['iwscan'] if scanresult['ESSID'] == self._ssid]
+                print(quals)
+                if not quals:
+                    quals = 0
+                bestquality = max(quals)
+                print(bestquality)
+                a['quality'].append(bestquality)
             a['tcp_upload_Mbps'].append(row['result']['tcp']['sent_Mbps'])
             a['tcp_download_Mbps'].append(
                 row['result']['tcp-reverse']['received_Mbps']
@@ -294,12 +304,13 @@ class HeatMapGenerator(object):
         norm = matplotlib.colors.Normalize(
             vmin=min(a[key]), vmax=max(a[key]), clip=True
         )
-        mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu_r')
+        #mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu_r')
+        mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu')
         # end color mapping
         image = pp.imshow(
             z,
             extent=(0, self._image_width, self._image_height, 0),
-            cmap='RdYlBu_r', alpha=0.5, zorder=100
+            cmap='RdYlBu', alpha=0.5, zorder=100
         )
         pp.colorbar(image)
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
@@ -333,6 +344,7 @@ def parse_args(argv):
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
     )
+    p.add_argument('-s','--ssid', default="", type=str, help='Specify a SSID which you want to know the coverage of')
     args = p.parse_args(argv)
     return args
 
@@ -374,9 +386,9 @@ def main():
         set_log_debug()
     elif args.verbose == 1:
         set_log_info()
-
+    print(args)
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, ignore_ssids=args.ignore
+        args.IMAGE, args.TITLE, args.ssid,ignore_ssids=args.ignore
     ).generate()
 
 

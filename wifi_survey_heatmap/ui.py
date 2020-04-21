@@ -120,11 +120,9 @@ class SurveyPoint(object):
         if self.is_failed:
             color = 'red'
         dc.SetBrush(wx.Brush(color, wx.SOLID))
-
         window_size = dc.GetSize()
         relposx = self.x * window_size[0]
         relposy = self.y * window_size[1]
-
         dc.DrawCircle(relposx, relposy, 20)
 
 
@@ -170,13 +168,11 @@ class FloorplanPanel(wx.Panel):
             rect = self.GetUpdateRegion().GetBox()
             dc.SetClippingRect(rect)
         dc.Clear()
-        
         bmp = wx.Bitmap(self.img_path)
         window_size = self.GetSize()
         image = wx.Bitmap.ConvertToImage(bmp)
         image = image.Scale(window_size[0], window_size[1], wx.IMAGE_QUALITY_HIGH)
         bmp = wx.Bitmap(image)
-
         dc.DrawBitmap(bmp, 0, 0)
 
     def onClick(self, event):

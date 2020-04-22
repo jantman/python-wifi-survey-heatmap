@@ -161,12 +161,15 @@ class HeatMapGenerator(object):
                     qualities = 0
                 bestquality = max(qualities)
                 a['quality'].append(bestquality)
-            a['tcp_upload_Mbps'].append(row['result']['tcp']['sent_Mbps'])
-            a['tcp_download_Mbps'].append(
-                row['result']['tcp-reverse']['received_Mbps']
-            )
-            a['udp_Mbps'].append(row['result']['udp']['Mbps'])
-            a['jitter'].append(row['result']['udp']['jitter_ms'])
+            if(row['result'].get('tcp')):
+                a['tcp_upload_Mbps'].append(row['result']['tcp']['sent_Mbps'])
+            if(row['result'].get('tcp-reverse')):
+                a['tcp_download_Mbps'].append(
+                    row['result']['tcp-reverse']['received_Mbps']
+                )
+            if(row['result'].get('udp')):
+                a['udp_Mbps'].append(row['result']['udp']['Mbps'])
+                a['jitter'].append(row['result']['udp']['jitter_ms'])
         for x, y in [
             (0, 0), (0, self._image_height),
             (self._image_width, 0), (self._image_width, self._image_height)
@@ -185,14 +188,15 @@ class HeatMapGenerator(object):
         y = np.linspace(0, self._image_height, num_y)
         gx, gy = np.meshgrid(x, y)
         gx, gy = gx.flatten(), gy.flatten()
-        for k, ptitle in {
+        plots = {
             'rssi': 'RSSI (level)',
             'quality': 'iwstats Quality',
             'tcp_upload_Mbps': 'TCP Upload Mbps',
             'tcp_download_Mbps': 'TCP Download Mbps',
             'udp_Mbps': 'UDP Upload Mbps',
             'jitter': 'UDP Jitter (ms)'
-        }.items():
+        }
+        for k, ptitle in plots.items():
             self._plot(
                 a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
             )
@@ -290,40 +294,44 @@ class HeatMapGenerator(object):
         pp.rcParams['figure.figsize'] = (
             self._image_width / 300, self._image_height / 300
         )
-        pp.title(title)
-        # Interpolate the data
-        rbf = Rbf(
-            a['x'], a['y'], a[key], function='linear'
-        )
-        z = rbf(gx, gy)
-        z = z.reshape((num_y, num_x))
-        # Render the interpolated data to the plot
-        pp.axis('off')
-        # begin color mapping
-        norm = matplotlib.colors.Normalize(
-            vmin=min(a[key]), vmax=max(a[key]), clip=True
-        )
-        #mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu_r')
-        mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu')
-        # end color mapping
-        image = pp.imshow(
-            z,
-            extent=(0, self._image_width, self._image_height, 0),
-            cmap='RdYlBu', alpha=0.5, zorder=100
-        )
-        pp.colorbar(image)
-        pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
-        # begin plotting points
-        for idx in range(0, len(a['x'])):
-            pp.plot(
-                a['x'][idx], a['y'][idx],
-                marker='o', markeredgecolor='black', markeredgewidth=1,
-                markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
+        try:
+
+            pp.title(title)
+            # Interpolate the data
+            rbf = Rbf(
+                a['x'], a['y'], a[key], function='linear'
             )
-        # end plotting points
-        fname = '%s_%s.png' % (key, self._title)
-        logger.info('Writing plot to: %s', fname)
-        pp.savefig(fname, dpi=300)
+            z = rbf(gx, gy)
+            z = z.reshape((num_y, num_x))
+            # Render the interpolated data to the plot
+            pp.axis('off')
+            # begin color mapping
+            norm = matplotlib.colors.Normalize(
+                vmin=min(a[key]), vmax=max(a[key]), clip=True
+            )
+            #mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu_r')
+            mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu')
+            # end color mapping
+            image = pp.imshow(
+                z,
+                extent=(0, self._image_width, self._image_height, 0),
+                cmap='RdYlBu', alpha=0.5, zorder=100
+            )
+            pp.colorbar(image)
+            pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
+            # begin plotting points
+            for idx in range(0, len(a['x'])):
+                pp.plot(
+                    a['x'][idx], a['y'][idx],
+                    marker='o', markeredgecolor='black', markeredgewidth=1,
+                    markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
+                )
+            # end plotting points
+            fname = '%s_%s.png' % (key, self._title)
+            logger.info('Writing plot to: %s', fname)
+            pp.savefig(fname, dpi=300)
+        except ValueError:
+            logger.error("Not all SurveyPoints have the same Data. Skipping %s plot", key)
         pp.close('all')
 
 

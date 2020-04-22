@@ -185,24 +185,27 @@ class FloorplanPanel(wx.Panel):
         
         self.Refresh()
         res = {}
-        count = 0
-        for protoname, udp in {'tcp': False, 'udp': True}.items():
-            for suffix, reverse in {'': False, '-reverse': True}.items():
-                if udp and reverse:
-                    logger.warning('Skipping reverse UDP; always fails')
-                    continue
-                count += 1
-                tmp = self.run_iperf(count, udp, reverse)
-                if tmp is None:
-                    # bail out; abort this survey point
-                    del self.survey_points[-1]
-                    self.parent.SetStatusText('Aborted; ready to retry...')
-                    self.Refresh()
-                    return
-                # else success
-                res['%s%s' % (protoname, suffix)] = {
-                    x: getattr(tmp, x, None) for x in RESULT_FIELDS
-                }
+        if self.collector._iperf_server != '':
+            count = 0
+            for protoname, udp in {'tcp': False, 'udp': True}.items():
+                for suffix, reverse in {'': False, '-reverse': True}.items():
+                    if udp and reverse:
+                        logger.warning('Skipping reverse UDP; always fails')
+                        continue
+                    count += 1
+                    tmp = self.run_iperf(count, udp, reverse)
+                    if tmp is None:
+                        # bail out; abort this survey point
+                        del self.survey_points[-1]
+                        self.parent.SetStatusText('Aborted; ready to retry...')
+                        self.Refresh()
+                        return
+                    # else success
+                    res['%s%s' % (protoname, suffix)] = {
+                        x: getattr(tmp, x, None) for x in RESULT_FIELDS
+                    }
+        else:
+            logger.warning("No Iperf server set. Skipping Iperf scan.")
         self.parent.SetStatusText('Running iwconfig...')
         self.Refresh()
         res['iwconfig'] = self.collector.run_iwconfig()
@@ -305,7 +308,7 @@ def parse_args(argv):
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
-    p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
+    p.add_argument('-s','--server',default='', type=str, help='iperf3 server IP or hostname')
     p.add_argument('IMAGE', type=str, help='Path to background image')
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
@@ -355,7 +358,7 @@ def main():
 
         app = wx.App()
         frm = MainFrame(
-            args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE,
+            args.IMAGE, args.INTERFACE, args.server, args.TITLE,
             None, title='wifi-survey: %s' % args.TITLE
         )
         frm.Show()

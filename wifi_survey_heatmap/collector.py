@@ -43,7 +43,7 @@ from wifi_survey_heatmap.vendor.iwlib.iwlist import scan
 
 import iperf3
 
-from statistics import mean
+from statistics import mode, mean, StatisticsError
 import time 
 
 logger = logging.getLogger(__name__)
@@ -111,13 +111,12 @@ class Collector(object):
                     results[ap].append(r)
                 else:
                     results[ap] = [r]
-            time.sleep(0.5)
         filtered_results = []
         for ap in results.keys():
-            avg_quality = mean([data["stats"]["quality"] for data in results[ap]])
-            avg_level = mean([data["stats"]["level"] for data in results[ap]])
-            avg_noise = mean([data["stats"]["noise"] for data in results[ap]])
-            avg_updated = mean([data["stats"]["updated"] for data in results[ap]])
+            avg_quality = self.calc_measurements([data["stats"]["quality"] for data in results[ap]])
+            avg_level = self.calc_measurements([data["stats"]["level"] for data in results[ap]])
+            avg_noise = self.calc_measurements([data["stats"]["noise"] for data in results[ap]])
+            avg_updated = self.calc_measurements([data["stats"]["updated"] for data in results[ap]])
             filtered_results.append({'Mode': results[ap][0]["Mode"],
                                     'Frequency': results[ap][0]["Frequency"],
                                     'ESSID': results[ap][0]["ESSID"],
@@ -126,6 +125,12 @@ class Collector(object):
                                     'stats': {'quality': avg_quality, 'level': avg_level, 'noise': avg_noise, 'updated': avg_updated}})
         logger.debug('scan result: %s', res)
         return res
+
+    def calc_measurements(self, values):
+        try:
+            return mode(values)
+        except StatisticsError:
+            return mean(values)
 
     def run(self):
         res = {

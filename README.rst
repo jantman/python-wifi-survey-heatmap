@@ -52,9 +52,9 @@ The survey tool (``wifi-survey``) must be run as root or via ``sudo`` in order t
 First connect to the network that you want to survey. Then, run ``sudo wifi-survey INTERFACE SERVER PNG Title`` where:
 
 * ``INTERFACE`` is the name of your Wireless interface (e.g. ``wlp3s0``)
-* ``SERVER`` is the IP address or hostname of the iperf3 server
 * ``PNG`` is the path to a floorplan PNG file to use as the background for the map; see `examples/example_floorplan.png <examples/example_floorplan.png>`_ for an example. In order to compare multiple surveys it may be helpful to pre-mark your measurement points on the floorplan, like `examples/example_with_marks.png <examples/example_with_marks.png`_. The UI currently loads the PNG at exact size, so it may help to scale your PNG file to your display.
 * ``Title`` is the title for the survey (such as the network name or AP location), which will also be used to name the data file and output files.
+* ``-s SERVER`` is the IP address or hostname of the iperf3 server
 
 If ``Title.json`` already exists, the data from it will be pre-loaded into the application; this can be used to resume a survey.
 
@@ -65,7 +65,7 @@ At the end of the process, you should end up with a JSON file in your current di
 Heatmap Generation
 ++++++++++++++++++
 
-Once you've performed a survey with a given title and the results are saved in ``Title.json``, run ``wifi-heatmap PNG Title`` to generate heatmap files in the current directory. This process does not require (and shouldn't have) root/sudo and operates only on the JSON data file. For this, it will look better if you use a PNG without the measurement location marks.
+Once you've performed a survey with a given title and the results are saved in ``Title.json``, run ``wifi-heatmap PNG Title (--ssid "NameofSSID")`` to generate heatmap files in the current directory. This process does not require (and shouldn't have) root/sudo and operates only on the JSON data file. For this, it will look better if you use a PNG without the measurement location marks.
 
 The end result of this process for a given survey (Title) should be XX ``.png`` images in your current directory:
 

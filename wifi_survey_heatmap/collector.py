@@ -101,29 +101,8 @@ class Collector(object):
 
     def run_iwscan(self):
         logger.debug('Scanning...')
-        #execute mulitple scans to filter peaks
-        results = {}
-        for i in range(10):
-            res = scan(self._interface_name)
-            for r in res:
-                ap = r["Access Point"].decode('utf-8')
-                if results.get(ap) :
-                    results[ap].append(r)
-                else:
-                    results[ap] = [r]
-        filtered_results = []
-        for ap in results.keys():
-            avg_quality = self.calc_measurements([data["stats"]["quality"] for data in results[ap]])
-            avg_level = self.calc_measurements([data["stats"]["level"] for data in results[ap]])
-            avg_noise = self.calc_measurements([data["stats"]["noise"] for data in results[ap]])
-            avg_updated = self.calc_measurements([data["stats"]["updated"] for data in results[ap]])
-            filtered_results.append({'Mode': results[ap][0]["Mode"],
-                                    'Frequency': results[ap][0]["Frequency"],
-                                    'ESSID': results[ap][0]["ESSID"],
-                                    'Access Point': results[ap][0]["Access Point"],
-                                    'BitRate': results[ap][0]["BitRate"],
-                                    'stats': {'quality': avg_quality, 'level': avg_level, 'noise': avg_noise, 'updated': avg_updated}})
-        logger.debug('scan result: %s', res)
+        res = scan(self._interface_name)
+        logger.debug('iwlist result: %s', res)
         return res
 
     def calc_measurements(self, values):

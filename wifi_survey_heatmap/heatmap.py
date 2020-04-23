@@ -155,7 +155,7 @@ class HeatMapGenerator(object):
             if(self._ssid == ''):
                 a['quality'].append(row['result']['iwconfig']['stats']['quality'])
             else:
-                #selects the best quality for given SSID 
+                #selects the best quality for given SSID
                 qualities = [scanresult['stats']['quality'] for scanresult in row['result']['iwscan'] if scanresult['ESSID'] == self._ssid]
                 if not qualities:
                     qualities = 0

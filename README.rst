@@ -83,9 +83,13 @@ The end result of this process for a given survey (Title) should be XX ``.png`` 
 Running In Docker
 +++++++++++++++++
 
-``docker run --net="host" --privileged --name survey -it jantman/python-wifi-survey-heatmap``
+Survey - see ``run_docker.sh``
+
+Heatmap: ``docker run -it --rm -v $(pwd):/pwd -w /pwd jantman/python-wifi-survey-heatmap:23429a4 wifi-heatmap floorplan.png DeckTest``
 
 Note that running with ``--net="host"`` and ``--privileged`` is required in order to manipulate the host's wireless interface.
+
+Server: ``docker run -it --rm -p 5201:5201/tcp -p 5201:5201/udp jantman/python-wifi-survey-heatmap iperf3 -s``
 
 Examples
 --------

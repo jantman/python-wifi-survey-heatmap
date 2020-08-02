@@ -9,6 +9,7 @@ RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     iperf3 \
     gcc \
+    git \
     libiw-dev \
     python3 \
     python3-cffi \

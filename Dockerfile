@@ -40,4 +40,8 @@ LABEL maintainer="jason@jasonantman.com" \
       org.label-schema.version="$repo_ref" \
       org.label-schema.schema-version="1.0"
 
+# For the iperf server, if using for the server side
+EXPOSE 5201/tcp
+EXPOSE 5201/udp
+
 CMD /bin/bash

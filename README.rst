@@ -14,6 +14,8 @@ This is very rough, very alpha code. The heatmap generation code is roughly base
 Installation and Dependencies
 -----------------------------
 
+**NOTE: These can all be bypassed by using Docker. See below.**
+
 * The Python `iwlib <https://pypi.org/project/iwlib/>`_ package, which needs cffi and the Linux ``wireless_tools`` package.
 * The Python `iperf3 <https://pypi.org/project/iperf3/>`_ package, which needs `iperf3 <http://software.es.net/iperf/>`_ installed on your system.
 * `wxPython Phoenix <https://wiki.wxpython.org/How%20to%20install%20wxPython>`_, which unfortunately must be installed using OS packages or built from source.
@@ -77,6 +79,13 @@ The end result of this process for a given survey (Title) should be XX ``.png`` 
 * **tcp_download_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, downloading from server to client.
 * **tcp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, uploading from client to server.
 * **udp_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, UDP, uploading from client to server.
+
+Running In Docker
++++++++++++++++++
+
+``docker run --net="host" --privileged --name survey -it jantman/python-wifi-survey-heatmap``
+
+Note that running with ``--net="host"`` and ``--privileged`` is required in order to manipulate the host's wireless interface.
 
 Examples
 --------

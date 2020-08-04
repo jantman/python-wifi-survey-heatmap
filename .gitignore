@@ -73,3 +73,5 @@ result.json
 /tcp_*.png
 /udp_*.png
 /channels*.png
+
+pyvenv.cfg

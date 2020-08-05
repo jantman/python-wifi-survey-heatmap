@@ -195,9 +195,11 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Running iwconfig...')
         self.Refresh()
         res['iwconfig'] = self.collector.run_iwconfig()
-        self.parent.SetStatusText('Running iwscan...')
         self.Refresh()
-        res['iwscan'] = self.collector.run_iwscan()
+        if self.parent.scan:
+            self.parent.SetStatusText('Running iwscan...')
+            self.Refresh()
+            res['iwscan'] = self.collector.run_iwscan()
         self.survey_points[-1].set_result(res)
         self.survey_points[-1].set_is_finished()
         self.parent.SetStatusText(
@@ -257,13 +259,14 @@ class FloorplanPanel(wx.Panel):
 class MainFrame(wx.Frame):
 
     def __init__(
-            self, img_path, interface, server, survey_title,
+            self, img_path, interface, server, survey_title, scan,
             *args, **kw
     ):
         super(MainFrame, self).__init__(*args, **kw)
         self.img_path = img_path
         self.interface = interface
         self.server = server
+        self.scan = scan
         self.survey_title = survey_title
         self.CreateStatusBar()
         self.pnl = FloorplanPanel(self)
@@ -293,6 +296,8 @@ def parse_args(argv):
     p = argparse.ArgumentParser(description='wifi survey data collection UI')
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
+    p.add_argument('-S', '--no-scan', dest='scan', action='store_false',
+                   default=True, help='skip iwlist scan')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
     p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
     p.add_argument('IMAGE', type=str, help='Path to background image')
@@ -343,7 +348,7 @@ def main():
 
     app = wx.App()
     frm = MainFrame(
-        args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE,
+        args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE, args.scan,
         None, title='wifi-survey: %s' % args.TITLE
     )
     frm.Show()

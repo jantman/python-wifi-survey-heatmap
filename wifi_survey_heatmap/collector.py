@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 class Collector(object):
 
-    def __init__(self, interface_name, server_addr):
+    def __init__(self, interface_name, server_addr, scan=True):
         super().__init__()
         logger.debug(
             'Initializing Collector for interface: %s; iperf server: %s',
@@ -56,6 +56,7 @@ class Collector(object):
         )
         self._interface_name = interface_name
         self._iperf_server = server_addr
+        self._scan = scan
 
     def run_iperf(self, udp=False, reverse=False):
         client = iperf3.Client()
@@ -109,7 +110,8 @@ class Collector(object):
         logger.debug('Getting iwconfig...')
         res['config'] = get_iwconfig(self._interface_name)
         logger.debug('iwconfig result: %s', res['config'])
-        logger.debug('Scanning...')
-        res['scan'] = scan(self._interface_name)
-        logger.debug('scan result: %s', res['scan'])
+        if self._scan:
+            logger.debug('Scanning...')
+            res['scan'] = scan(self._interface_name)
+            logger.debug('scan result: %s', res['scan'])
         return res

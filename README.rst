@@ -62,6 +62,8 @@ If ``Title.json`` already exists, the data from it will be pre-loaded into the a
 
 When the UI loads, you should see your PNG file displayed. If you click on a point on the PNG, the application should draw a yellow circle there. The status bar at the bottom of the window will show information on each test as it's performed; the full cycle typically takes a minute or a bit more. When the test is complete, the circle should turn green and the status bar will inform you that the data has been written to ``Title.json`` and it's ready for the next measurement. The output file is (re-)written after each measurement completes, so just exit the app when you're finished (or want to resume later). If ``iperf3`` encounters an error, you'll be prompted whether you want to retry or not; if you don't, whatever results iperf was able to obtain will be saved for that point.
 
+The colored data points (technically a square box around them) can be right-clicked to remove them (after a confirmation dialog), in case you added one in error.
+
 At the end of the process, you should end up with a JSON file in your current directory named after the title you provided to ``wifi-survey`` (``Title.json``) that's owned by root. Fix the permissions if you want.
 
 **Note:** The actual survey methodology is largely up to you. In order to get accurate results, you likely want to manually handle AP associations yourself. Ideally, you lock your client to a single AP and single frequency/band for the survey.

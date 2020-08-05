@@ -113,15 +113,23 @@ class SurveyPoint(object):
     def set_is_finished(self):
         self.is_finished = True
 
-    def draw(self, dc):
-        color = 'green'
-        if not self.is_finished:
-            color = 'yellow'
-        if self.is_failed:
-            color = 'red'
+    def draw(self, dc, color=None):
+        if color is None:
+            color = 'green'
+            if not self.is_finished:
+                color = 'yellow'
+            if self.is_failed:
+                color = 'red'
         dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawCircle(self.x, self.y, 20)
 
+    def includes_point(self, x, y):
+        if (
+            self.x - 20 <= x <= self.x + 20 and
+            self.y - 20 <= y <= self.y + 20
+        ):
+            return True
+        return False
 
 class SafeEncoder(json.JSONEncoder):
 
@@ -139,8 +147,10 @@ class FloorplanPanel(wx.Panel):
         self.img_path = parent.img_path
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_LEFT_UP, self.onClick)
+        self.Bind(wx.EVT_RIGHT_UP, self.onRightClick)
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.survey_points = []
+        self._moving_point = False
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
@@ -167,6 +177,29 @@ class FloorplanPanel(wx.Panel):
         dc.Clear()
         bmp = wx.Bitmap(self.img_path)
         dc.DrawBitmap(bmp, 0, 0)
+
+    def onRightClick(self, event):
+        x, y = event.GetPosition()
+        point = None
+        for p in self.survey_points:
+            if p.includes_point(x, y):
+                point = p
+        if point is None:
+            self.parent.SetStatusText(
+                f"No survey point found at ({x}, {y})"
+            )
+            self.Refresh()
+            return
+        # ok, we have a point to remove
+        point.draw(wx.ClientDC(self), color='blue')
+        res = self.YesNo(f'Remove point at ({x}, {y}) shown in blue?')
+        if not res:
+            self.parent.SetStatusText('Not removing point.')
+            return
+        self.survey_points.remove(point)
+        self.parent.SetStatusText(f'Removed point at ({x}, {y})')
+        self.Refresh()
+        self._write_json()
 
     def onClick(self, event):
         pos = event.GetPosition()
@@ -206,6 +239,9 @@ class FloorplanPanel(wx.Panel):
             'Saving to: %s' % self.data_filename
         )
         self.Refresh()
+        self._write_json()
+
+    def _write_json(self):
         res = json.dumps(
             [x.as_dict for x in self.survey_points],
             cls=SafeEncoder

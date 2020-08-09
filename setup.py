@@ -44,8 +44,8 @@ with open('README.rst') as file:
 requires = [
     'cffi>=1.0.0',
     'iperf3==0.1.10',
-    'matplotlib==3.0.1',
-    'scipy==1.1.0'
+    'matplotlib==3.3.0',
+    'scipy==1.5.2'
 ]
 
 classifiers = [

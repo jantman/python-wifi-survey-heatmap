@@ -113,14 +113,30 @@ class SurveyPoint(object):
     def set_is_finished(self):
         self.is_finished = True
 
-    def draw(self, dc):
-        color = 'green'
-        if not self.is_finished:
-            color = 'yellow'
-        if self.is_failed:
-            color = 'red'
+    def draw(self, dc, color=None):
+        if color is None:
+            color = 'green'
+            if not self.is_finished:
+                color = 'yellow'
+            if self.is_failed:
+                color = 'red'
+        dc.SetPen(wx.Pen(color, style=wx.TRANSPARENT))
         dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawCircle(self.x, self.y, 20)
+
+    def erase(self, dc):
+        """quicker than redrawing, since DC doesn't have persistence"""
+        dc.SetPen(wx.Pen('white', style=wx.TRANSPARENT))
+        dc.SetBrush(wx.Brush('white', wx.SOLID))
+        dc.DrawCircle(self.x, self.y, 22)
+
+    def includes_point(self, x, y):
+        if (
+            self.x - 20 <= x <= self.x + 20 and
+            self.y - 20 <= y <= self.y + 20
+        ):
+            return True
+        return False
 
 
 class SafeEncoder(json.JSONEncoder):
@@ -138,9 +154,16 @@ class FloorplanPanel(wx.Panel):
         self.parent = parent
         self.img_path = parent.img_path
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
-        self.Bind(wx.EVT_LEFT_UP, self.onClick)
+
+        self.Bind(wx.EVT_LEFT_UP, self.onLeftUp)
+        self.Bind(wx.EVT_LEFT_DOWN, self.onLeftDown)
+        self.Bind(wx.EVT_MOTION, self.onMotion)
+        self.Bind(wx.EVT_RIGHT_UP, self.onRightClick)
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.survey_points = []
+        self._moving_point = None
+        self._moving_x = None
+        self._moving_y = None
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
@@ -168,8 +191,82 @@ class FloorplanPanel(wx.Panel):
         bmp = wx.Bitmap(self.img_path)
         dc.DrawBitmap(bmp, 0, 0)
 
-    def onClick(self, event):
-        pos = event.GetPosition()
+    def onRightClick(self, event):
+        x, y = event.GetPosition()
+        point = None
+        for p in self.survey_points:
+            # important to iterate the whole list, so we find the most recent
+            if p.includes_point(x, y):
+                point = p
+        if point is None:
+            self.parent.SetStatusText(
+                f"No survey point found at ({x}, {y})"
+            )
+            self.Refresh()
+            return
+        # ok, we have a point to remove
+        point.draw(wx.ClientDC(self), color='blue')
+        res = self.YesNo(f'Remove point at ({x}, {y}) shown in blue?')
+        if not res:
+            self.parent.SetStatusText('Not removing point.')
+            self.Refresh()
+            return
+        self.survey_points.remove(point)
+        self.parent.SetStatusText(f'Removed point at ({x}, {y})')
+        self.Refresh()
+        self._write_json()
+
+    def onLeftDown(self, event):
+        x, y = event.GetPosition()
+        point = None
+        for p in self.survey_points:
+            # important to iterate the whole list, so we find the most recent
+            if p.includes_point(x, y):
+                point = p
+        if point is None:
+            self.parent.SetStatusText(
+                f"No survey point found at ({x}, {y})"
+            )
+            self.Refresh()
+            return
+        self._moving_point = point
+        self._moving_x = point.x
+        self._moving_y = point.y
+        point.draw(wx.ClientDC(self), color='blue')
+
+    def onLeftUp(self, event):
+        if self._moving_point is None:
+            self._do_measurement(event.GetPosition())
+            return
+        x, y = event.GetPosition()
+        oldx = self._moving_point.x
+        oldy = self._moving_point.y
+        self._moving_point.x = x
+        self._moving_point.y = y
+        self._moving_point.draw(wx.ClientDC(self), color='red')
+        res = self.YesNo(
+            f'Move point from blue ({oldx}, {oldy}) to red ({x}, {y})?'
+        )
+        if not res:
+            self._moving_point.x = self._moving_x
+            self._moving_point.y = self._moving_y
+        self._moving_point = None
+        self._moving_x = None
+        self._moving_y = None
+        self.Refresh()
+        self._write_json()
+
+    def onMotion(self, event):
+        if self._moving_point is None:
+            return
+        x, y = event.GetPosition()
+        dc = wx.ClientDC(self)
+        self._moving_point.erase(dc)
+        self._moving_point.x = x
+        self._moving_point.y = y
+        self._moving_point.draw(dc, color='red')
+
+    def _do_measurement(self, pos):
         self.parent.SetStatusText('Got click at: %s' % pos)
         self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
         self.Refresh()
@@ -195,15 +292,20 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Running iwconfig...')
         self.Refresh()
         res['iwconfig'] = self.collector.run_iwconfig()
-        self.parent.SetStatusText('Running iwscan...')
         self.Refresh()
-        res['iwscan'] = self.collector.run_iwscan()
+        if self.parent.scan:
+            self.parent.SetStatusText('Running iwscan...')
+            self.Refresh()
+            res['iwscan'] = self.collector.run_iwscan()
         self.survey_points[-1].set_result(res)
         self.survey_points[-1].set_is_finished()
         self.parent.SetStatusText(
             'Saving to: %s' % self.data_filename
         )
         self.Refresh()
+        self._write_json()
+
+    def _write_json(self):
         res = json.dumps(
             [x.as_dict for x in self.survey_points],
             cls=SafeEncoder
@@ -257,13 +359,14 @@ class FloorplanPanel(wx.Panel):
 class MainFrame(wx.Frame):
 
     def __init__(
-            self, img_path, interface, server, survey_title,
+            self, img_path, interface, server, survey_title, scan,
             *args, **kw
     ):
         super(MainFrame, self).__init__(*args, **kw)
         self.img_path = img_path
         self.interface = interface
         self.server = server
+        self.scan = scan
         self.survey_title = survey_title
         self.CreateStatusBar()
         self.pnl = FloorplanPanel(self)
@@ -293,6 +396,8 @@ def parse_args(argv):
     p = argparse.ArgumentParser(description='wifi survey data collection UI')
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
+    p.add_argument('-S', '--no-scan', dest='scan', action='store_false',
+                   default=True, help='skip iwlist scan')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
     p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
     p.add_argument('IMAGE', type=str, help='Path to background image')
@@ -343,7 +448,7 @@ def main():
 
     app = wx.App()
     frm = MainFrame(
-        args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE,
+        args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE, args.scan,
         None, title='wifi-survey: %s' % args.TITLE
     )
     frm.Show()

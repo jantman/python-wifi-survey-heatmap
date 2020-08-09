@@ -48,6 +48,7 @@ from scipy.interpolate import Rbf
 from pylab import imread, imshow
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
+from matplotlib.font_manager import FontManager
 import matplotlib
 
 
@@ -126,7 +127,13 @@ WIFI_CHANNELS = {
 
 class HeatMapGenerator(object):
 
-    def __init__(self, image_path, title, ignore_ssids=[]):
+    def __init__(self, image_path, title, ignore_ssids=[], aps=None):
+        self._ap_names = {}
+        if aps is not None:
+            with open(aps, 'r') as fh:
+                self._ap_names = {
+                    x.upper(): y for x, y in json.loads(fh.read()).items()
+                }
         self._image_path = image_path
         self._title = title
         self._ignore_ssids = ignore_ssids
@@ -137,6 +144,10 @@ class HeatMapGenerator(object):
         self._layout = imread(self._image_path)
         self._image_width = len(self._layout[0])
         self._image_height = len(self._layout) - 1
+        self._corners = [
+            (0, 0), (0, self._image_height),
+            (self._image_width, 0), (self._image_width, self._image_height)
+        ]
         logger.debug(
             'Loaded image with width=%d height=%d',
             self._image_width, self._image_height
@@ -158,15 +169,21 @@ class HeatMapGenerator(object):
             )
             a['udp_Mbps'].append(row['result']['udp']['Mbps'])
             a['jitter'].append(row['result']['udp']['jitter_ms'])
-        for x, y in [
-            (0, 0), (0, self._image_height),
-            (self._image_width, 0), (self._image_width, self._image_height)
-        ]:
+            ap = self._ap_names.get(
+                row['result']['iwconfig']['Access Point'].upper(),
+                row['result']['iwconfig']['Access Point']
+            )
+            if row['result']['iwconfig']['Frequency'].startswith('2.4'):
+                a['ap'].append(ap + '_2.4')
+            else:
+                a['ap'].append(ap + '_5G')
+        for x, y in self._corners:
             a['x'].append(x)
             a['y'].append(y)
             for k in a.keys():
-                if k in ['x', 'y']:
+                if k in ['x', 'y', 'ap']:
                     continue
+                a['ap'].append(None)
                 a[k] = [0 if x is None else x for x in a[k]]
                 a[k].append(min(a[k]))
         self._channel_graphs()
@@ -303,12 +320,20 @@ class HeatMapGenerator(object):
         )
         pp.colorbar(image)
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
+        labelsize = FontManager.get_default_size() * 0.4
         # begin plotting points
         for idx in range(0, len(a['x'])):
+            if (a['x'][idx], a['y'][idx]) in self._corners:
+                continue
             pp.plot(
                 a['x'][idx], a['y'][idx],
                 marker='o', markeredgecolor='black', markeredgewidth=1,
                 markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
+            )
+            pp.text(
+                a['x'][idx], a['y'][idx] - 30,
+                a['ap'][idx], fontsize=labelsize,
+                horizontalalignment='center'
             )
         # end plotting points
         fname = '%s_%s.png' % (key, self._title)
@@ -329,6 +354,12 @@ def parse_args(argv):
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('-i', '--ignore', dest='ignore', action='append',
                    default=[], help='SSIDs to ignore from channel graph')
+    p.add_argument('-a', '--ap-names', type=str, dest='aps', action='store',
+                   default=None,
+                   help='If specified, a JSON file mapping AP MAC/BSSID to '
+                        'a string to label each measurement with, showing '
+                        'which AP it was connected to. Useful when doing '
+                        'multi-AP surveys.')
     p.add_argument('IMAGE', type=str, help='Path to background image')
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
@@ -376,7 +407,7 @@ def main():
         set_log_info()
 
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, ignore_ssids=args.ignore
+        args.IMAGE, args.TITLE, ignore_ssids=args.ignore, aps=args.aps
     ).generate()
 
 

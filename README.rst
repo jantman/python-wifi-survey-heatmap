@@ -5,6 +5,10 @@ python-wifi-survey-heatmap
    :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
    :target: https://www.repostatus.org/#wip
 
+.. image:: https://img.shields.io/docker/cloud/build/jantman/python-wifi-survey-heatmap.svg
+   :alt: Docker Hub Build Status
+   :target: https://hub.docker.com/r/jantman/python-wifi-survey-heatmap
+
 A Python application for Linux machines to perform WiFi site surveys and present
 the results as a heatmap overlayed on a floorplan.
 
@@ -13,6 +17,8 @@ This is very rough, very alpha code. The heatmap generation code is roughly base
 
 Installation and Dependencies
 -----------------------------
+
+**NOTE: These can all be ignored when using Docker. See below.**
 
 * The Python `iwlib <https://pypi.org/project/iwlib/>`_ package, which needs cffi and the Linux ``wireless_tools`` package.
 * The Python `iperf3 <https://pypi.org/project/iperf3/>`_ package, which needs `iperf3 <http://software.es.net/iperf/>`_ installed on your system.
@@ -58,16 +64,25 @@ First connect to the network that you want to survey. Then, run ``sudo wifi-surv
 
 If ``Title.json`` already exists, the data from it will be pre-loaded into the application; this can be used to resume a survey.
 
-When the UI loads, you should see your PNG file displayed. If you click on a point on the PNG, the application should draw a yellow circle there. The status bar at the bottom of the window will show information on each test as it's performed; the full cycle typically takes a minute or a bit more. When the test is complete, the circle should turn green and the status bar will inform you that the data has been written to ``Title.json`` and it's ready for the next measurement. The output file is (re-)written after each measurement completes, so just exit the app when you're finished (or want to resume later). If ``iperf3`` encounters an error, you'll be prompted whether you want to retry or not; if you don't, whatever results iperf was able to obtain will be saved for that point.
+When the UI loads, you should see your PNG file displayed. The UI is really simple:
+
+* If you (left / primary) click on a point on the PNG, this will begin a measurement (survey point). The application should draw a yellow circle there. The status bar at the bottom of the window will show information on each test as it's performed; the full cycle typically takes a minute or a bit more. When the test is complete, the circle should turn green and the status bar will inform you that the data has been written to ``Title.json`` and it's ready for the next measurement. If ``iperf3`` encounters an error, you'll be prompted whether you want to retry or not; if you don't, whatever results iperf was able to obtain will be saved for that point.
+* The output file is (re-)written after each measurement completes, so just exit the app when you're finished (or want to resume later; specifying the same Title will load the existing points and data from JSON).
+* Right (secondary) clicking a point will allow you to delete it. You'll be prompted to confirm.
+* Dragging (left/primary click and hold, then drag) an existing point will allow you to move it. You'll be prompted to confirm. This is handy if you accidentally click in the wrong place.
 
 At the end of the process, you should end up with a JSON file in your current directory named after the title you provided to ``wifi-survey`` (``Title.json``) that's owned by root. Fix the permissions if you want.
+
+**Note:** The actual survey methodology is largely up to you. In order to get accurate results, you likely want to manually handle AP associations yourself. Ideally, you lock your client to a single AP and single frequency/band for the survey.
 
 Heatmap Generation
 ++++++++++++++++++
 
 Once you've performed a survey with a given title and the results are saved in ``Title.json``, run ``wifi-heatmap PNG Title`` to generate heatmap files in the current directory. This process does not require (and shouldn't have) root/sudo and operates only on the JSON data file. For this, it will look better if you use a PNG without the measurement location marks.
 
-The end result of this process for a given survey (Title) should be XX ``.png`` images in your current directory:
+You can optionally pass the path to a JSON file mapping the access point MAC addresses (BSSIDs) to friendly names via the ``-a`` / ``--ap-names`` argument. If specified, this will annotate each measurement dot on the heatmap with the name (mapping value) and frequency band of the AP that was connected when the measurement was taken. This can be useful in multi-AP roaming environments.
+
+The end result of this process for a given survey (Title) should be 8 ``.png`` images in your current directory:
 
 * **channels24_TITLE.png** - Bar graph of average signal quality of APs seen on 2.4 GHz channels, by channel. Useful for visualizing channel contention. (Based on 20 MHz channel bandwidth)
 * **channels5_TITLE.png** - Bar graph of average signal quality of APs seen on 5 GHz channels, by channel. Useful for visualizing channel contention. (Based on per-channel bandwidth from 20 to 160 MHz)
@@ -77,6 +92,39 @@ The end result of this process for a given survey (Title) should be XX ``.png`` 
 * **tcp_download_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, downloading from server to client.
 * **tcp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, uploading from client to server.
 * **udp_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, UDP, uploading from client to server.
+
+Running In Docker
+-----------------
+
+Survey
+++++++
+
+.. code-block:: bash
+
+   docker run \
+     --net="host" \
+     --privileged \
+     --name survey \
+     -it \
+     --rm \
+     -v $(pwd):/pwd \
+     -w /pwd \
+     -e DISPLAY=$DISPLAY \
+     -v "$HOME/.Xauthority:/root/.Xauthority:ro" \
+     jantman/python-wifi-survey-heatmap \
+     wifi-survey INTERFACE SERVER FLOORPLAN.png TITLE
+
+Note that running with ``--net="host"`` and ``--privileged`` is required in order to manipulate the host's wireless interface.
+
+Heatmap
++++++++
+
+``docker run -it --rm -v $(pwd):/pwd -w /pwd jantman/python-wifi-survey-heatmap:23429a4 wifi-heatmap floorplan.png DeckTest``
+
+iperf3 server
++++++++++++++
+
+Server: ``docker run -it --rm -p 5201:5201/tcp -p 5201:5201/udp jantman/python-wifi-survey-heatmap iperf3 -s``
 
 Examples
 --------

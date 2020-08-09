@@ -131,6 +131,7 @@ class SurveyPoint(object):
             return True
         return False
 
+
 class SafeEncoder(json.JSONEncoder):
 
     def default(self, obj):
@@ -146,11 +147,13 @@ class FloorplanPanel(wx.Panel):
         self.parent = parent
         self.img_path = parent.img_path
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
-        self.Bind(wx.EVT_LEFT_UP, self.onClick)
+
+        self.Bind(wx.EVT_LEFT_UP, self.onLeftUp)
+        self.Bind(wx.EVT_LEFT_DOWN, self.onLeftDown)
         self.Bind(wx.EVT_RIGHT_UP, self.onRightClick)
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.survey_points = []
-        self._moving_point = False
+        self._moving_point = None
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
@@ -195,14 +198,49 @@ class FloorplanPanel(wx.Panel):
         res = self.YesNo(f'Remove point at ({x}, {y}) shown in blue?')
         if not res:
             self.parent.SetStatusText('Not removing point.')
+            self.Refresh()
             return
         self.survey_points.remove(point)
         self.parent.SetStatusText(f'Removed point at ({x}, {y})')
         self.Refresh()
         self._write_json()
 
-    def onClick(self, event):
-        pos = event.GetPosition()
+    def onLeftDown(self, event):
+        x, y = event.GetPosition()
+        point = None
+        for p in self.survey_points:
+            if p.includes_point(x, y):
+                point = p
+        if point is None:
+            self.parent.SetStatusText(
+                f"No survey point found at ({x}, {y})"
+            )
+            self.Refresh()
+            return
+        self._moving_point = point
+        point.draw(wx.ClientDC(self), color='blue')
+
+    def onLeftUp(self, event):
+        if self._moving_point is None:
+            self._do_measurement(event.GetPosition())
+            return
+        x, y = event.GetPosition()
+        oldx = self._moving_point.x
+        oldy = self._moving_point.y
+        self._moving_point.x = x
+        self._moving_point.y = y
+        self._moving_point.draw(wx.ClientDC(self), color='red')
+        res = self.YesNo(
+            f'Move point from blue ({oldx}, {oldy}) to red ({x}, {y})?'
+        )
+        if not res:
+            self._moving_point.x = oldx
+            self._moving_point.y = oldy
+        self._moving_point = None
+        self.Refresh()
+        self._write_json()
+
+    def _do_measurement(self, pos):
         self.parent.SetStatusText('Got click at: %s' % pos)
         self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
         self.Refresh()

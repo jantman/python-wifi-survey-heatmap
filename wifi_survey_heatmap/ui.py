@@ -120,8 +120,15 @@ class SurveyPoint(object):
                 color = 'yellow'
             if self.is_failed:
                 color = 'red'
+        dc.SetPen(wx.Pen(color, style=wx.TRANSPARENT))
         dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawCircle(self.x, self.y, 20)
+
+    def erase(self, dc):
+        """quicker than redrawing, since DC doesn't have persistence"""
+        dc.SetPen(wx.Pen('white', style=wx.TRANSPARENT))
+        dc.SetBrush(wx.Brush('white', wx.SOLID))
+        dc.DrawCircle(self.x, self.y, 22)
 
     def includes_point(self, x, y):
         if (
@@ -150,10 +157,13 @@ class FloorplanPanel(wx.Panel):
 
         self.Bind(wx.EVT_LEFT_UP, self.onLeftUp)
         self.Bind(wx.EVT_LEFT_DOWN, self.onLeftDown)
+        self.Bind(wx.EVT_MOTION, self.onMotion)
         self.Bind(wx.EVT_RIGHT_UP, self.onRightClick)
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.survey_points = []
         self._moving_point = None
+        self._moving_x = None
+        self._moving_y = None
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
@@ -185,6 +195,7 @@ class FloorplanPanel(wx.Panel):
         x, y = event.GetPosition()
         point = None
         for p in self.survey_points:
+            # important to iterate the whole list, so we find the most recent
             if p.includes_point(x, y):
                 point = p
         if point is None:
@@ -209,6 +220,7 @@ class FloorplanPanel(wx.Panel):
         x, y = event.GetPosition()
         point = None
         for p in self.survey_points:
+            # important to iterate the whole list, so we find the most recent
             if p.includes_point(x, y):
                 point = p
         if point is None:
@@ -218,6 +230,8 @@ class FloorplanPanel(wx.Panel):
             self.Refresh()
             return
         self._moving_point = point
+        self._moving_x = point.x
+        self._moving_y = point.y
         point.draw(wx.ClientDC(self), color='blue')
 
     def onLeftUp(self, event):
@@ -234,11 +248,23 @@ class FloorplanPanel(wx.Panel):
             f'Move point from blue ({oldx}, {oldy}) to red ({x}, {y})?'
         )
         if not res:
-            self._moving_point.x = oldx
-            self._moving_point.y = oldy
+            self._moving_point.x = self._moving_x
+            self._moving_point.y = self._moving_y
         self._moving_point = None
+        self._moving_x = None
+        self._moving_y = None
         self.Refresh()
         self._write_json()
+
+    def onMotion(self, event):
+        if self._moving_point is None:
+            return
+        x, y = event.GetPosition()
+        dc = wx.ClientDC(self)
+        self._moving_point.erase(dc)
+        self._moving_point.x = x
+        self._moving_point.y = y
+        self._moving_point.draw(dc, color='red')
 
     def _do_measurement(self, pos):
         self.parent.SetStatusText('Got click at: %s' % pos)

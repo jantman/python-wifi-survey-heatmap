@@ -5,6 +5,10 @@ python-wifi-survey-heatmap
    :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
    :target: https://www.repostatus.org/#wip
 
+.. image:: https://img.shields.io/docker/cloud/build/jantman/python-wifi-survey-heatmap.svg
+   :alt: Docker Hub Build Status
+   :target: https://hub.docker.com/r/jantman/python-wifi-survey-heatmap
+
 A Python application for Linux machines to perform WiFi site surveys and present
 the results as a heatmap overlayed on a floorplan.
 

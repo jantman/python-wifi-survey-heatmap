@@ -18,7 +18,7 @@ This is very rough, very alpha code. The heatmap generation code is roughly base
 Installation and Dependencies
 -----------------------------
 
-**NOTE: These can all be bypassed by using Docker. See below.**
+**NOTE: These can all be ignored when using Docker. See below.**
 
 * The Python `iwlib <https://pypi.org/project/iwlib/>`_ package, which needs cffi and the Linux ``wireless_tools`` package.
 * The Python `iperf3 <https://pypi.org/project/iperf3/>`_ package, which needs `iperf3 <http://software.es.net/iperf/>`_ installed on your system.

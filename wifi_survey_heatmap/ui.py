@@ -266,12 +266,25 @@ class FloorplanPanel(wx.Panel):
         self._moving_point.y = y
         self._moving_point.draw(dc, color='red')
 
+
     def _do_measurement(self, pos):
         self.parent.SetStatusText('Got click at: %s' % pos)
         self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
         self.Refresh()
         res = {}
         count = 0
+        iwc = self.collector.run_iwconfig()
+        if (
+            self.parent.bssid is not None and
+            iwc['Access Point'].lower() != self.parent.bssid.lower()
+        ):
+            del self.survey_points[-1]
+            self.parent.SetStatusText(
+                f'ERROR: Expected BSSID {self.parent.bssid} but found '
+                f'BSSID {iwc["Access Point"]}'
+            )
+            self.Refresh()
+            return
         for protoname, udp in {'tcp': False, 'udp': True}.items():
             for suffix, reverse in {'': False, '-reverse': True}.items():
                 if udp and reverse:
@@ -292,6 +305,17 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Running iwconfig...')
         self.Refresh()
         res['iwconfig'] = self.collector.run_iwconfig()
+        if (
+            self.parent.bssid is not None and
+            res['iwconfig']['Access Point'].lower() != self.parent.bssid.lower()
+        ):
+            del self.survey_points[-1]
+            self.parent.SetStatusText(
+                f'ERROR: Expected BSSID {self.parent.bssid} but found '
+                f'BSSID {res["iwconfig"]["Access Point"]}'
+            )
+            self.Refresh()
+            return
         self.Refresh()
         if self.parent.scan:
             self.parent.SetStatusText('Running iwscan...')
@@ -359,7 +383,7 @@ class FloorplanPanel(wx.Panel):
 class MainFrame(wx.Frame):
 
     def __init__(
-            self, img_path, interface, server, survey_title, scan,
+            self, img_path, interface, server, survey_title, scan, bssid,
             *args, **kw
     ):
         super(MainFrame, self).__init__(*args, **kw)
@@ -368,6 +392,7 @@ class MainFrame(wx.Frame):
         self.server = server
         self.scan = scan
         self.survey_title = survey_title
+        self.bssid = bssid
         self.CreateStatusBar()
         self.pnl = FloorplanPanel(self)
         self.makeMenuBar()
@@ -398,6 +423,8 @@ def parse_args(argv):
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('-S', '--no-scan', dest='scan', action='store_false',
                    default=True, help='skip iwlist scan')
+    p.add_argument('-b', '--bssid', dest='bssid', action='store', type=str,
+                   default=None, help='Restrict survey to this BSSID')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
     p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
     p.add_argument('IMAGE', type=str, help='Path to background image')
@@ -449,7 +476,7 @@ def main():
     app = wx.App()
     frm = MainFrame(
         args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE, args.scan,
-        None, title='wifi-survey: %s' % args.TITLE
+        args.bssid, None, title='wifi-survey: %s' % args.TITLE,
     )
     frm.Show()
     frm.Maximize(True)

@@ -35,5 +35,5 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ##################################################################################
 """
 
-VERSION = '0.2.0'
+VERSION = '0.2.1'
 PROJECT_URL = 'https://github.com/jantman/wifi-survey-heatmap'

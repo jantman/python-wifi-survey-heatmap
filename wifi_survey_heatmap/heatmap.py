@@ -254,7 +254,10 @@ class HeatMapGenerator(object):
         pp.close('all')
 
     def _channel_graphs(self):
-        c2s = self._channel_to_signal()
+        try:
+            c2s = self._channel_to_signal()
+        except KeyError:
+            return
         names24 = []
         values24 = []
         names5 = []

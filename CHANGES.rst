@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.2.1 (2020-08-10)
+------------------
+
+* Fix heatmap generation error if ``wifi-survey`` is run with ``-S`` / ``--no-scan`` option to disable ``iwlist scan``.
+
 0.2.0 (2020-08-09)
 ------------------
 

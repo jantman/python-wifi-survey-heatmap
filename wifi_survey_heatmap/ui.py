@@ -167,7 +167,6 @@ class FloorplanPanel(wx.Panel):
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
-        self.dinger = Dinger(self.parent.ding_path)
         self.collector = Collector(self.parent.interface, self.parent.server)
         self.parent.SetStatusText("Ready.")
 

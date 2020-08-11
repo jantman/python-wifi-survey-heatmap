@@ -266,6 +266,18 @@ class FloorplanPanel(wx.Panel):
         self._moving_point.y = y
         self._moving_point.draw(dc, color='red')
 
+    def _check_bssid(self, data):
+        if self.parent.bssid is None:
+            return True
+        bssid = data['Access Point'].decode().lower()
+        if bssid == self.parent.bssid:
+            return True
+        msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
+              f'BSSID {iwc["Access Point"]}'
+        self.parent.SetStatusText(msg)
+        self.Refresh()
+        self.warn(msg)
+        return False
 
     def _do_measurement(self, pos):
         self.parent.SetStatusText('Got click at: %s' % pos)
@@ -274,16 +286,7 @@ class FloorplanPanel(wx.Panel):
         res = {}
         count = 0
         iwc = self.collector.run_iwconfig()
-        if (
-            self.parent.bssid is not None and
-            iwc['Access Point'].lower() != self.parent.bssid.lower()
-        ):
-            del self.survey_points[-1]
-            msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
-                  f'BSSID {iwc["Access Point"]}'
-            self.parent.SetStatusText(msg)
-            self.Refresh()
-            self.warn(msg)
+        if not self._check_bssid(iwc):
             return
         for protoname, udp in {'tcp': False, 'udp': True}.items():
             for suffix, reverse in {'': False, '-reverse': True}.items():
@@ -305,16 +308,8 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Running iwconfig...')
         self.Refresh()
         res['iwconfig'] = self.collector.run_iwconfig()
-        if (
-            self.parent.bssid is not None and
-            res['iwconfig']['Access Point'].lower() != self.parent.bssid.lower()
-        ):
+        if not self._check_bssid(res['iwconfig']):
             del self.survey_points[-1]
-            msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
-                  f'BSSID {res["iwconfig"]["Access Point"]}'
-            self.parent.SetStatusText(msg)
-            self.Refresh()
-            self.warn(msg)
             return
         self.Refresh()
         if self.parent.scan:
@@ -399,6 +394,8 @@ class MainFrame(wx.Frame):
         self.scan = scan
         self.survey_title = survey_title
         self.bssid = bssid
+        if self.bssid is not None:
+            self.bssid = self.bssid.lower()
         self.ding_path = ding
         self.ding_command = ding_command
         self.CreateStatusBar()

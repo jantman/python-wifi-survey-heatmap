@@ -5,7 +5,8 @@ Changelog
 ------------------
 
 * Fix heatmap generation error if ``wifi-survey`` is run with ``-S`` / ``--no-scan`` option to disable ``iwlist scan``.
-* Implement ``-b`` / ``--bssid`` option to ensure that scan is against a specified BSSID
+* Implement ``-b`` / ``--bssid`` option to ensure that scan is against a specified BSSID.
+* Implement ``--ding`` option to play a short audio file (i.e. a ding) when measurement is finished.
 
 0.2.0 (2020-08-09)
 ------------------

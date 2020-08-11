@@ -80,6 +80,22 @@ At the end of the process, you should end up with a JSON file in your current di
 
 **Note:** The actual survey methodology is largely up to you. In order to get accurate results, you likely want to manually handle AP associations yourself. Ideally, you lock your client to a single AP and single frequency/band for the survey.
 
+Playing A Sound When Measurement Finishes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It's possible to have ``wifi-survey`` play a sound when each measurement is complete. This can be handy if you're reading or watching something in another window while waiting for the measurements.
+
+To enable this, call ``wifi-survey`` with the ``--ding`` argument, passing it the path to an audio file to play. A short sound effect is included in this repository at ``wifi_survey_heatmap/complete.oga`` and can be used via ``--ding wifi_survey_heatmap/complete.oga``. by default, this will call ``/usr/bin/paplay`` (the PulseAudio player) passing it the ding file path as the only argument. The command used can be overridden with ``--ding-command /path/to/command`` but it must be one that accepts the path to an audio file as its only argument.
+
+Inside Docker, however, this becomes quite a bit more difficult. Currently PulseAudio systems are supported, and this can be set up and enabled with the following steps:
+
+1. Find your host computer's IP address on the ``docker0`` network: ``ip addr show dev docker0`` - mine (and most Linux machines) is ``172.17.0.1``
+1. Find the CIDR block of your ``docker0`` network. I do this using ``ip route show dev docker0``, which gives me a CIDR of ``172.17.0.0/16``
+1. Have PulseAudio listen on a TCP socket, allowing connections from your Docker network: ``pactl load-module module-native-protocol-tcp  port=34567 auth-ip-acl=172.17.0.0/16``
+1. If you have iptables restricting traffic, insert a rule allowing traffic on port 34567 from Docker before your ``DROP`` rule. For example, to insert a rule at position 5 in the ``INPUT`` chain: ``iptables -I INPUT 5 -s 172.17.0.0/16 -p tcp -m multiport --dports 34567 -m comment --comment "accept PulseAudio port 34567 tcp from Docker" -j ACCEPT``
+1. When running the Docker container, add ``-e "PULSE_SERVER=tcp:172.17.0.1:34567"`` to the ``docker run`` command.
+1. When running ``wifi-survey``, add the ``--ding`` argument as specified above. Note that the path to the file must be inside the container; you can put an audio file in your current directory and use it via ``--ding /pwd/audioFile`` or you can use the default file built-in to the container via ``--ding /app/wifi_survey_heatmap/complete.oga``
+
 Heatmap Generation
 ++++++++++++++++++
 

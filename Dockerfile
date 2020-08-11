@@ -11,6 +11,7 @@ RUN apt-get update && \
     gcc \
     git \
     libiw-dev \
+    pulseaudio-utils \
     python3 \
     python3-cffi \
     python3-dev \

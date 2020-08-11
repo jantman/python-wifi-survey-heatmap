@@ -1,11 +1,11 @@
 Changelog
 =========
 
-0.2.1 (2020-08-10)
+0.2.1 (2020-08-11)
 ------------------
 
 * Fix heatmap generation error if ``wifi-survey`` is run with ``-S`` / ``--no-scan`` option to disable ``iwlist scan``.
-* Implement option to ensure that scan is against a specified BSSID
+* Implement ``-b`` / ``--bssid`` option to ensure that scan is against a specified BSSID
 
 0.2.0 (2020-08-09)
 ------------------

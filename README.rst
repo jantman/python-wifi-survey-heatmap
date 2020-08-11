@@ -64,6 +64,11 @@ First connect to the network that you want to survey. Then, run ``sudo wifi-surv
 
 If ``Title.json`` already exists, the data from it will be pre-loaded into the application; this can be used to resume a survey.
 
+Some other command-line options include:
+
+* ``-S`` / ``--no-scan`` to disable running iwlist scans at the end of each measurement. This greatly speeds up survey time but loses the data used for channel utilization graphs. If you're using a modern wireless product that allows running RF scans, it makes sense to use that data instead of iw scans.
+* ``-b`` / ``--bssid`` allows you to specify a single desired BSSID for your survey. This will be checked (iw config) at the beginning and end of every measurement, and the measurement will fail if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
+
 When the UI loads, you should see your PNG file displayed. The UI is really simple:
 
 * If you (left / primary) click on a point on the PNG, this will begin a measurement (survey point). The application should draw a yellow circle there. The status bar at the bottom of the window will show information on each test as it's performed; the full cycle typically takes a minute or a bit more. When the test is complete, the circle should turn green and the status bar will inform you that the data has been written to ``Title.json`` and it's ready for the next measurement. If ``iperf3`` encounters an error, you'll be prompted whether you want to retry or not; if you don't, whatever results iperf was able to obtain will be saved for that point.

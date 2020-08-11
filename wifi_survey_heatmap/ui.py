@@ -279,11 +279,11 @@ class FloorplanPanel(wx.Panel):
             iwc['Access Point'].lower() != self.parent.bssid.lower()
         ):
             del self.survey_points[-1]
-            self.parent.SetStatusText(
-                f'ERROR: Expected BSSID {self.parent.bssid} but found '
-                f'BSSID {iwc["Access Point"]}'
-            )
+            msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
+                  f'BSSID {iwc["Access Point"]}'
+            self.parent.SetStatusText(msg)
             self.Refresh()
+            self.warn(msg)
             return
         for protoname, udp in {'tcp': False, 'udp': True}.items():
             for suffix, reverse in {'': False, '-reverse': True}.items():
@@ -310,11 +310,11 @@ class FloorplanPanel(wx.Panel):
             res['iwconfig']['Access Point'].lower() != self.parent.bssid.lower()
         ):
             del self.survey_points[-1]
-            self.parent.SetStatusText(
-                f'ERROR: Expected BSSID {self.parent.bssid} but found '
-                f'BSSID {res["iwconfig"]["Access Point"]}'
-            )
+            msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
+                  f'BSSID {res["iwconfig"]["Access Point"]}'
+            self.parent.SetStatusText(msg)
             self.Refresh()
+            self.warn(msg)
             return
         self.Refresh()
         if self.parent.scan:

@@ -67,4 +67,6 @@ include/
 .idea/
 result.json
 *.json
-/*.png
+*.png
+docs/
+examples/

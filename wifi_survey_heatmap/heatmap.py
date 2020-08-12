@@ -127,7 +127,18 @@ WIFI_CHANNELS = {
 
 class HeatMapGenerator(object):
 
-    def __init__(self, image_path, title, ignore_ssids=[], aps=None):
+    graphs = {
+        'rssi': 'RSSI (level)',
+        'quality': 'iwstats Quality',
+        'tcp_upload_Mbps': 'TCP Upload Mbps',
+        'tcp_download_Mbps': 'TCP Download Mbps',
+        'udp_Mbps': 'UDP Upload Mbps',
+        'jitter': 'UDP Jitter (ms)'
+    }
+
+    def __init__(
+        self, image_path, title, ignore_ssids=[], aps=None, thresholds=None
+    ):
         self._ap_names = {}
         if aps is not None:
             with open(aps, 'r') as fh:
@@ -135,6 +146,10 @@ class HeatMapGenerator(object):
                     x.upper(): y for x, y in json.loads(fh.read()).items()
                 }
         self._image_path = image_path
+        self._layout = None
+        self._image_width = 0
+        self._image_height = 0
+        self._corners = [(0, 0), (0, 0), (0, 0), (0, 0)]
         self._title = title
         if not self._title.endswith('.json'):
             self._title += '.json'
@@ -143,22 +158,17 @@ class HeatMapGenerator(object):
             'Initialized HeatMapGenerator; image_path=%s title=%s',
             self._image_path, self._title
         )
-        self._layout = imread(self._image_path)
-        self._image_width = len(self._layout[0])
-        self._image_height = len(self._layout) - 1
-        self._corners = [
-            (0, 0), (0, self._image_height),
-            (self._image_width, 0), (self._image_width, self._image_height)
-        ]
-        logger.debug(
-            'Loaded image with width=%d height=%d',
-            self._image_width, self._image_height
-        )
         with open(self._title, 'r') as fh:
             self._data = json.loads(fh.read())
         logger.info('Loaded %d measurement points', len(self._data))
+        self.thresholds = {}
+        if thresholds is not None:
+            logger.info('Loading thresholds from: %s', thresholds)
+            with open(thresholds, 'r') as fh:
+                self.thresholds = json.loads(fh.read())
+            logger.debug('Thresholds: %s', self.thresholds)
 
-    def generate(self):
+    def load_data(self):
         a = defaultdict(list)
         for row in self._data:
             a['x'].append(row['x'])
@@ -179,6 +189,24 @@ class HeatMapGenerator(object):
                 a['ap'].append(ap + '_2.4')
             else:
                 a['ap'].append(ap + '_5G')
+        return a
+
+    def _load_image(self):
+        self._layout = imread(self._image_path)
+        self._image_width = len(self._layout[0])
+        self._image_height = len(self._layout) - 1
+        self._corners = [
+            (0, 0), (0, self._image_height),
+            (self._image_width, 0), (self._image_width, self._image_height)
+        ]
+        logger.debug(
+            'Loaded image with width=%d height=%d',
+            self._image_width, self._image_height
+        )
+
+    def generate(self):
+        self._load_image()
+        a = self.load_data()
         for x, y in self._corners:
             a['x'].append(x)
             a['y'].append(y)
@@ -195,14 +223,7 @@ class HeatMapGenerator(object):
         y = np.linspace(0, self._image_height, num_y)
         gx, gy = np.meshgrid(x, y)
         gx, gy = gx.flatten(), gy.flatten()
-        for k, ptitle in {
-            'rssi': 'RSSI (level)',
-            'quality': 'iwstats Quality',
-            'tcp_upload_Mbps': 'TCP Upload Mbps',
-            'tcp_download_Mbps': 'TCP Download Mbps',
-            'udp_Mbps': 'UDP Upload Mbps',
-            'jitter': 'UDP Jitter (ms)'
-        }.items():
+        for k, ptitle in self.graphs.items():
             self._plot(
                 a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
             )
@@ -300,6 +321,7 @@ class HeatMapGenerator(object):
         return at
 
     def _plot(self, a, key, title, gx, gy, num_x, num_y):
+        logger.debug('Plotting: %s', key)
         pp.rcParams['figure.figsize'] = (
             self._image_width / 300, self._image_height / 300
         )
@@ -313,15 +335,26 @@ class HeatMapGenerator(object):
         # Render the interpolated data to the plot
         pp.axis('off')
         # begin color mapping
-        norm = matplotlib.colors.Normalize(
-            vmin=min(a[key]), vmax=max(a[key]), clip=True
-        )
+        if 'min' in self.thresholds.get(key, {}):
+            vmin = self.thresholds[key]['min']
+            logger.debug('Using min threshold from thresholds: %s', vmin)
+        else:
+            vmin = min(a[key])
+            logger.debug('Using calculated min threshold: %s', vmin)
+        if 'max' in self.thresholds.get(key, {}):
+            vmax = self.thresholds[key]['max']
+            logger.debug('Using max threshold from thresholds: %s', vmax)
+        else:
+            vmax = max(a[key])
+            logger.debug('Using calculated max threshold: %s', vmax)
+        norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
         mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu_r')
         # end color mapping
         image = pp.imshow(
             z,
             extent=(0, self._image_width, self._image_height, 0),
-            cmap='RdYlBu_r', alpha=0.5, zorder=100
+            cmap='RdYlBu_r', alpha=0.5, zorder=100,
+            vmin=vmin, vmax=vmax
         )
         pp.colorbar(image)
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
@@ -359,6 +392,8 @@ def parse_args(argv):
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('-i', '--ignore', dest='ignore', action='append',
                    default=[], help='SSIDs to ignore from channel graph')
+    p.add_argument('-t', '--thresholds', dest='thresholds', action='store',
+                   type=str, help='thresholds JSON file path')
     p.add_argument('-a', '--ap-names', type=str, dest='aps', action='store',
                    default=None,
                    help='If specified, a JSON file mapping AP MAC/BSSID to '
@@ -412,7 +447,8 @@ def main():
         set_log_info()
 
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, ignore_ssids=args.ignore, aps=args.aps
+        args.IMAGE, args.TITLE, ignore_ssids=args.ignore, aps=args.aps,
+        thresholds=args.thresholds
     ).generate()
 
 

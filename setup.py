@@ -86,7 +86,8 @@ setup(
         'console_scripts': [
             'wifi-scan = wifi_survey_heatmap.scancli:main',
             'wifi-survey = wifi_survey_heatmap.ui:main',
-            'wifi-heatmap = wifi_survey_heatmap.heatmap:main'
+            'wifi-heatmap = wifi_survey_heatmap.heatmap:main',
+            'wifi-heatmap-thresholds = wifi_survey_heatmap.thresholds:main'
         ]
     },
     cffi_modules=[

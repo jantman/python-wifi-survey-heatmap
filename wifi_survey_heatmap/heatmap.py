@@ -136,6 +136,8 @@ class HeatMapGenerator(object):
                 }
         self._image_path = image_path
         self._title = title
+        if not self._title.endswith('.json'):
+            self._title += '.json'
         self._ignore_ssids = ignore_ssids
         logger.debug(
             'Initialized HeatMapGenerator; image_path=%s title=%s',
@@ -152,7 +154,7 @@ class HeatMapGenerator(object):
             'Loaded image with width=%d height=%d',
             self._image_width, self._image_height
         )
-        with open('%s.json' % self._title, 'r') as fh:
+        with open(self._title, 'r') as fh:
             self._data = json.loads(fh.read())
         logger.info('Loaded %d measurement points', len(self._data))
 

@@ -15,6 +15,15 @@ the results as a heatmap overlayed on a floorplan.
 This is very rough, very alpha code. The heatmap generation code is roughly based on
 `Beau Gunderson's MIT-licensed wifi-heatmap code <https://github.com/beaugunderson/wifi-heatmap>`_.
 
+Quick start
+-----------
+
+Check out the **Running In Docker** steps below to get single-line commands that run without the need to install *anything* on your computer (thanks to using `docker`).
+Creating a heatmap using the software consists of the following three essential steps:
+1. Start an `iperf3` server on any machine in your local network. This server is used for bandwidth measurements to be independent of your Internet connection.
+2. Use the `wifi-survey` tool to record a measurement. You can load a floorplan and click on your current location ot record signal strength and determine the achievable bandwidth.
+3. Once done with all the measurements, use the `wifi-heatmap` tool to compute a high-resolution heatmap from your recorded data. In case your data turns out to be too coarse, you can always go back to step 2 and delete or move old and also add new measurements at any time.
+
 Installation and Dependencies
 -----------------------------
 
@@ -37,8 +46,12 @@ At each survey location, data collection should take 45-60 seconds. The data col
 * 10-second iperf3 measurement, TCP, client (this app) sending to server, default iperf3 options
 * 10-second iperf3 measurement, TCP, server sending to client, default iperf3 options
 * 10-second iperf3 measurement, UDP, client (this app) sending to server, default iperf3 options
-* ``iwconfig`` capture for current AP/ESSID/BSSID, frequency, bitrate, and quality/level/noise stats
+* Recording of advertised channel bandwidth, bitrate and signal strength
 * ``iwlist`` scan of all visible access points
+
+Hints:
+- The duration of the bandwidth measurement can be changed using the `--duration` argument of `wifi-survey`. This has great influence on the actual length of the individual data collections.
+- Scanning for other network takes rather long. As this isn't required in most cases, you can skip this using `wifi-survey --no-scan`
 
 Usage
 -----
@@ -67,7 +80,7 @@ If ``Title.json`` already exists, the data from it will be pre-loaded into the a
 Some other command-line options include:
 
 * ``-S`` / ``--no-scan`` to disable running iwlist scans at the end of each measurement. This greatly speeds up survey time but loses the data used for channel utilization graphs. If you're using a modern wireless product that allows running RF scans, it makes sense to use that data instead of iw scans.
-* ``-b`` / ``--bssid`` allows you to specify a single desired BSSID for your survey. This will be checked (iw config) at the beginning and end of every measurement, and the measurement will fail if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
+* ``-b`` / ``--bssid`` allows you to specify a single desired BSSID for your survey. This will be checked several times during of every measurement, and the measurement will be discarded if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
 * ``-d`` / ``--duration`` allows you to change the duration of each individual `iperf3` test run (default is 10 seconds as mentioned above)
 
 When the UI loads, you should see your PNG file displayed. The UI is really simple:

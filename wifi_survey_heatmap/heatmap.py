@@ -139,7 +139,8 @@ class HeatMapGenerator(object):
     }
 
     def __init__(
-        self, image_path, title, showpoints, ignore_ssids=[], aps=None, thresholds=None
+        self, image_path, title, showpoints, ignore_ssids=[], aps=None,
+        thresholds=None
     ):
         self._ap_names = {}
         if aps is not None:
@@ -276,7 +277,7 @@ class HeatMapGenerator(object):
         ax.set_xlabel('Channel')
         ax.set_ylabel('Mean Quality')
         ax.set_xticks(ticks)
-        #ax.set_xticklabels(names)
+        # ax.set_xticklabels(names)
         logger.info('Writing plot to: %s', fname)
         pp.savefig(fname, dpi=300)
         pp.close('all')
@@ -410,8 +411,8 @@ def parse_args(argv):
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
     )
-    p.add_argument('-s', '--show-points', dest='showpoints', action='count', default=0,
-                   help='show measurement points in file')
+    p.add_argument('-s', '--show-points', dest='showpoints', action='count',
+                   default=0, help='show measurement points in file')
     args = p.parse_args(argv)
     return args
 
@@ -457,8 +458,8 @@ def main():
     showpoints = True if args.showpoints > 0 else False
 
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, showpoints, ignore_ssids=args.ignore, aps=args.aps,
-        thresholds=args.thresholds
+        args.IMAGE, args.TITLE, showpoints, ignore_ssids=args.ignore,
+        aps=args.aps, thresholds=args.thresholds
     ).generate()
 
 

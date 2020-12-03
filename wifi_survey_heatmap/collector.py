@@ -69,7 +69,8 @@ class Collector(object):
         # Check if this is a wireless device
         wifaces = pyw.winterfaces()
         if interface_name not in wifaces:
-            logger.error("Device {0} is not a valid wireless interface, use one of {1}".format(interface_name, wifaces))
+            logger.error("Device {0} is not a valid wireless interface, use"
+                         " one of {1}".format(interface_name, wifaces))
             exit(1)
 
         # Get WiFi card handle
@@ -115,7 +116,7 @@ class Collector(object):
     def check_associated(self):
         logger.debug('Checking association with AP...')
         linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
-        if not "stat" in linfo or not linfo["stat"] == "associated":
+        if "stat" not in linfo or linfo["stat"] is not "associated":
             logger.warning('Not associated to an AP')
             return False
         else:
@@ -175,7 +176,8 @@ class Collector(object):
             res['tx'] = linfo['tx']['bitrate']['rate']
         else:
             res['tx'] = -1.0
-        logger.debug('Bitrate is %.1f / %.1f MBit/s (RX / TX)', res['rx'], res['tx'])
+        logger.debug('Bitrate is %.1f / %.1f MBit/s (RX / TX)',
+                     res['rx'], res['tx'])
         return res
 
     def run_iwscan(self):

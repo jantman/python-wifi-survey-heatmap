@@ -130,8 +130,10 @@ class SurveyPoint(object):
         dc.SetPen(wx.Pen(color, style=wx.TRANSPARENT))
         dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawCircle(self.x, self.y, 20)
-        #dc.DrawText("a", self.x, self.y)
-        dc.DrawLabel("{}%".format(self.progress), wx.Rect(self.x-10, self.y-10, 20, 20), wx.ALIGN_CENTER)
+
+        # Put progress label on top of the circle
+        dc.DrawLabel("{}%".format(self.progress), wx.Rect(
+            self.x-10, self.y-10, 20, 20), wx.ALIGN_CENTER)
 
     def erase(self, dc):
         """quicker than redrawing, since DC doesn't have persistence"""
@@ -176,7 +178,8 @@ class FloorplanPanel(wx.Panel):
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
         self._duration = self.parent.duration
-        self.collector = Collector(self.parent.interface, self.parent.server, self._duration)
+        self.collector = Collector(
+            self.parent.interface, self.parent.server, self._duration)
         self.parent.SetStatusText("Ready.")
 
     def _load_file(self, fpath):
@@ -457,9 +460,12 @@ class FloorplanPanel(wx.Panel):
 
     def run_iperf(self, count, udp, reverse):
         proto = "UDP" if udp else "TCP"
-        direction = "Upload"  if reverse else "Download"
+        direction = "Upload" if reverse else "Download"
         self.parent.SetStatusText(
-            'Running iperf %d/3: %s (%s) - takes %i seconds' % (count, direction, proto, self._duration)
+            'Running iperf %d/3: %s (%s) - takes %i seconds' % (count,
+                                                                direction,
+                                                                proto,
+                                                                self._duration)
         )
         self.Refresh()
         tmp = self.collector.run_iperf(udp, reverse)

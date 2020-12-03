@@ -136,7 +136,7 @@ class HeatMapGenerator(object):
     }
 
     def __init__(
-        self, image_path, title, ignore_ssids=[], aps=None, thresholds=None
+        self, image_path, title, showpoints, ignore_ssids=[], aps=None, thresholds=None
     ):
         self._ap_names = {}
         if aps is not None:
@@ -150,6 +150,7 @@ class HeatMapGenerator(object):
         self._image_height = 0
         self._corners = [(0, 0), (0, 0), (0, 0), (0, 0)]
         self._title = title
+        self._showpoints = showpoints
         if not self._title.endswith('.json'):
             self._title += '.json'
         self._ignore_ssids = ignore_ssids
@@ -357,21 +358,22 @@ class HeatMapGenerator(object):
         pp.colorbar(image)
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
         labelsize = FontManager.get_default_size() * 0.4
-        # begin plotting points
-        for idx in range(0, len(a['x'])):
-            if (a['x'][idx], a['y'][idx]) in self._corners:
-                continue
-            pp.plot(
-                a['x'][idx], a['y'][idx],
-                marker='o', markeredgecolor='black', markeredgewidth=1,
-                markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
-            )
-            pp.text(
-                a['x'][idx], a['y'][idx] - 30,
-                a['ap'][idx], fontsize=labelsize,
-                horizontalalignment='center'
-            )
-        # end plotting points
+        if(self._showpoints):
+            # begin plotting points
+            for idx in range(0, len(a['x'])):
+                if (a['x'][idx], a['y'][idx]) in self._corners:
+                    continue
+                pp.plot(
+                    a['x'][idx], a['y'][idx],
+                    marker='o', markeredgecolor='black', markeredgewidth=1,
+                    markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
+                )
+                pp.text(
+                    a['x'][idx], a['y'][idx] - 30,
+                    a['ap'][idx], fontsize=labelsize,
+                    horizontalalignment='center'
+                )
+            # end plotting points
         fname = '%s_%s.png' % (key, self._title)
         logger.info('Writing plot to: %s', fname)
         pp.savefig(fname, dpi=300)
@@ -402,6 +404,8 @@ def parse_args(argv):
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
     )
+    p.add_argument('-s', '--show-points', dest='showpoints', action='count', default=0,
+                   help='show measurement points in file')
     args = p.parse_args(argv)
     return args
 
@@ -444,8 +448,10 @@ def main():
     elif args.verbose == 1:
         set_log_info()
 
+    showpoints = True if args.showpoints > 0 else False
+
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, ignore_ssids=args.ignore, aps=args.aps,
+        args.IMAGE, args.TITLE, showpoints, ignore_ssids=args.ignore, aps=args.aps,
         thresholds=args.thresholds
     ).generate()
 

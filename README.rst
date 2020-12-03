@@ -112,9 +112,11 @@ The end result of this process for a given survey (Title) should be some ``.png`
 * **rss_TITLE.png** - Heatmap based on the received signal strength.
 * **tcp_download_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, downloading from server to client.
 * **tcp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, uploading from client to server.
-* **udp_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, UDP, uploading from client to server.
+* **udp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, UDP, uploading from client to server.
 
 If you'd like to synchronize the colors/thresholds across multiple heatmaps, such as when comparing different AP placements, you can run ``wifi-heatmap-thresholds`` passing it each of the titles / output JSON filenames. This will generate a ``thresholds.json`` file in the current directory, suitable for passing to the ``wifi-heatmap`` ``-t`` / ``--thresholds`` option.
+
+Add `--show-points` to see the measurement points in the generated maps. Typically, they aren't important when you have a sufficiently dense grid of points so they are hidden by default.
 
 Running In Docker
 -----------------

@@ -312,9 +312,6 @@ class FloorplanPanel(wx.Panel):
             return
         for protoname, udp in {'tcp': False, 'udp': True}.items():
             for suffix, reverse in {'': False, '-reverse': True}.items():
-                if udp and reverse:
-                    logger.debug('Skipping reverse UDP; always fails')
-                    continue
                 count += 1
 
                 # Update progress mark
@@ -460,9 +457,10 @@ class FloorplanPanel(wx.Panel):
 
     def run_iperf(self, count, udp, reverse):
         proto = "UDP" if udp else "TCP"
-        direction = "Upload" if reverse else "Download"
+        # iperf3 default direction is uploading to the server
+        direction = "Download" if reverse else "Upload"
         self.parent.SetStatusText(
-            'Running iperf %d/3: %s (%s) - takes %i seconds' % (count,
+            'Running iperf %d/4: %s (%s) - takes %i seconds' % (count,
                                                                 direction,
                                                                 proto,
                                                                 self._duration)

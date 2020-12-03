@@ -129,9 +129,10 @@ class HeatMapGenerator(object):
 
     graphs = {
         'rss': 'RSS (received signal strength) [dBm]',
-        'tcp_upload_Mbps': 'TCP Upload [MBit/s]',
-        'tcp_download_Mbps': 'TCP Download [MBit/s]',
-        'udp_upload_Mbps': 'UDP Upload [MBit/s]',
+        'tcp_download_Mbps': 'Download (TCP) [MBit/s]',
+        'udp_download_Mbps': 'Download (UDP) [MBit/s]',
+        'tcp_upload_Mbps': 'Upload (TCP) [MBit/s]',
+        'udp_upload_Mbps': 'Upload (UDP) [MBit/s]',
         'jitter': 'UDP Jitter [ms]',
         'frequency': 'Wi-Fi frequency [MHz]',
         'channel_bitrate': 'Maximum channel bandwidth [MBit/s]',
@@ -177,11 +178,14 @@ class HeatMapGenerator(object):
             a['x'].append(row['x'])
             a['y'].append(row['y'])
             a['rss'].append(row['result']['rss'])
-            a['tcp_upload_Mbps'].append(row['result']['tcp']['sent_Mbps'])
+            a['tcp_upload_Mbps'].append(
+                row['result']['tcp']['received_Mbps']
+            )
             a['tcp_download_Mbps'].append(
                 row['result']['tcp-reverse']['received_Mbps']
             )
-            a['udp_upload_Mbps'].append(row['result']['udp']['Mbps'])
+            a['udp_download_Mbps'].append(row['result']['udp']['Mbps'])
+            a['udp_upload_Mbps'].append(row['result']['udp-reverse']['Mbps'])
             a['jitter'].append(row['result']['udp']['jitter_ms'])
             a['frequency'].append(row['result']['freq'])
             a['channel_bitrate'].append(row['result']['channel_bitrate'])

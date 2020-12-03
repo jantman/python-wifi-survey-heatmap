@@ -42,6 +42,7 @@ from wifi_survey_heatmap.vendor.iwlib.iwlist import scan
 import pyric
 import pyric.pyw as pyw
 import pyric.utils as wireless_utils
+import pyric.lib.libnl as nl
 
 import iperf3
 
@@ -57,6 +58,7 @@ class Collector(object):
             interface_name, server_addr
         )
         # ensure interface_name is a wireless interfaces
+        self._nlsocket = nl.nl_socket_alloc()
         self._wifi_card = self.get_wifi_card(interface_name)
         self._interface_name = interface_name
         self._iperf_server = server_addr
@@ -71,8 +73,8 @@ class Collector(object):
             exit(1)
 
         # Get WiFi card handle
-        card = pyw.getcard(interface_name)
-        linfo = pyw.link(card)
+        card = pyw.getcard(interface_name, nlsock=self._nlsocket)
+        linfo = pyw.link(card, nlsock=self._nlsocket)
         logger.debug('Connected to AP with SSID "%s"', linfo['ssid'])
         return card
 
@@ -112,7 +114,7 @@ class Collector(object):
 
     def check_associated(self):
         logger.debug('Checking association with AP...')
-        linfo = pyw.link(self._wifi_card)
+        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
         if not "stat" in linfo or not linfo["stat"] == "associated":
             logger.warning('Not associated to an AP')
             return False
@@ -122,28 +124,28 @@ class Collector(object):
 
     def get_bssid(self):
         logger.debug('Getting BSSID...')
-        linfo = pyw.link(self._wifi_card)
+        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
         res = linfo['bssid']
         logger.debug('BSSID is %s', res)
         return res
 
     def get_ssid(self):
         logger.debug('Getting SSID...')
-        linfo = pyw.link(self._wifi_card)
+        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
         res = linfo['ssid']
         logger.debug('SSID is %s', res)
         return res
 
     def get_rss(self):
         logger.debug('Getting received signal strength (RSS)...')
-        linfo = pyw.link(self._wifi_card)
+        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
         res = linfo['rss']
         logger.debug('RSS is %s', res)
         return res
 
     def get_freq(self):
         logger.debug('Getting frequency...')
-        linfo = pyw.link(self._wifi_card)
+        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
         res = linfo['freq']
         logger.debug('Frequency is %s', res)
         return res
@@ -156,7 +158,7 @@ class Collector(object):
 
     def get_channel_width(self):
         logger.debug('Getting channel width...')
-        linfo = pyw.link(self._wifi_card)
+        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
         res = linfo['chw']
         logger.debug('Channel width is %s MHz', res)
         return res
@@ -164,7 +166,7 @@ class Collector(object):
     def get_bitrate(self):
         res = {}
         logger.debug('Getting bitrate width...')
-        linfo = pyw.link(self._wifi_card)
+        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
         if 'bitrate' in linfo['rx'] and 'rate' in linfo['rx']['bitrate']:
             res['rx'] = linfo['rx']['bitrate']['rate']
         else:
@@ -174,13 +176,6 @@ class Collector(object):
         else:
             res['tx'] = -1.0
         logger.debug('Bitrate is %.1f / %.1f MBit/s (RX / TX)', res['rx'], res['tx'])
-        return res
-
-    def scan_access_points(self):
-        logger.debug('Scanning network for available access points...')
-        wifi_scanner = get_scanner()
-        res = wifi_scanner.get_access_points()
-        logger.debug('Found %d access points', len(res))
         return res
 
     def run_iwscan(self):

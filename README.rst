@@ -114,6 +114,8 @@ The end result of this process for a given survey (Title) should be some ``.png`
 * `tcp_upload_Mbps_TITLE.png` - Heatmap of `iperf3` transfer rate, TCP, uploading from client to server.
 * `udp_upload_Mbps_TITLE.png` - Heatmap of `iperf3` transfer rate, UDP, uploading from client to server.
 * `frequency_TITLE.png` - Heatmap of used frequency. May reveal zones in which Wi-Fi steering moved the device onto a different band (2.4GHz / 5 GHz co-existance).
+* `channel_rx_bitrate_TITLE.png` - Heatmap of advertised channel bandwidth in RX direction (AP to client)
+* `channel_tx_bitrate_TITLE.png` - Heatmap of advertised channel bandwidth in TX direction (client to AP)
 
 If you'd like to synchronize the colors/thresholds across multiple heatmaps, such as when comparing different AP placements, you can run ``wifi-heatmap-thresholds`` passing it each of the titles / output JSON filenames. This will generate a ``thresholds.json`` file in the current directory, suitable for passing to the ``wifi-heatmap`` ``-t`` / ``--thresholds`` option.
 

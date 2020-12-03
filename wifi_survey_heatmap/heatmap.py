@@ -134,8 +134,7 @@ class HeatMapGenerator(object):
         'udp_upload_Mbps': 'UDP Upload [MBit/s]',
         'jitter': 'UDP Jitter [ms]',
         'frequency': 'Wi-Fi frequency [MHz]',
-        'channel_rx_bitrate': 'Advertised channel bandwidth (RX) [MBit/s]',
-        'channel_tx_bitrate': 'Advertised channel bandwidth (TX) [MBit/s]',
+        'channel_bitrate': 'Maximum channel bandwidth [MBit/s]',
     }
 
     def __init__(
@@ -185,8 +184,7 @@ class HeatMapGenerator(object):
             a['udp_upload_Mbps'].append(row['result']['udp']['Mbps'])
             a['jitter'].append(row['result']['udp']['jitter_ms'])
             a['frequency'].append(row['result']['freq'])
-            a['channel_rx_bitrate'].append(row['result']['bitrate']['rx'])
-            a['channel_tx_bitrate'].append(row['result']['bitrate']['tx'])
+            a['channel_bitrate'].append(row['result']['channel_bitrate'])
             ap = self._ap_names.get(
                 row['result']['ssid'].upper(),
                 row['result']['ssid']

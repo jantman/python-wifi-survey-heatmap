@@ -165,20 +165,16 @@ class Collector(object):
         return res
 
     def get_bitrate(self):
-        res = {}
         logger.debug('Getting bitrate width...')
         linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
         if 'bitrate' in linfo['rx'] and 'rate' in linfo['rx']['bitrate']:
-            res['rx'] = linfo['rx']['bitrate']['rate']
+            bitrate = linfo['rx']['bitrate']['rate']
+        elif 'bitrate' in linfo['tx'] and 'rate' in linfo['tx']['bitrate']:
+            bitrate = linfo['tx']['bitrate']['rate']
         else:
-            res['rx'] = -1.0
-        if 'bitrate' in linfo['tx'] and 'rate' in linfo['tx']['bitrate']:
-            res['tx'] = linfo['tx']['bitrate']['rate']
-        else:
-            res['tx'] = -1.0
-        logger.debug('Bitrate is %.1f / %.1f MBit/s (RX / TX)',
-                     res['rx'], res['tx'])
-        return res
+            bitrate = -1.0
+        logger.debug('Bitrate is %.1f MBit/s', bitrate)
+        return bitrate
 
     def run_iwscan(self):
         logger.debug('Scanning...')

@@ -400,7 +400,7 @@ class FloorplanPanel(wx.Panel):
         # Get current bitrate (in MBit/s)
         self.parent.SetStatusText('Getting bitrate...')
         self.Refresh()
-        res['bitrate'] = self.collector.get_bitrate()
+        res['channel_bitrate'] = self.collector.get_bitrate()
         self.survey_points[-1].set_progress(9, steps)
 
         # Check if we're still connected to the same AP

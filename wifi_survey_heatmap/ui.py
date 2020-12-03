@@ -167,7 +167,7 @@ class FloorplanPanel(wx.Panel):
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
-        self.collector = Collector(self.parent.interface, self.parent.server)
+        self.collector = Collector(self.parent.interface, self.parent.server, self.parent.duration)
         self.parent.SetStatusText("Ready.")
 
     def _load_file(self, fpath):
@@ -463,7 +463,7 @@ class MainFrame(wx.Frame):
 
     def __init__(
             self, img_path, interface, server, survey_title, scan, bssid, ding,
-            ding_command, *args, **kw
+            ding_command, duration, *args, **kw
     ):
         super(MainFrame, self).__init__(*args, **kw)
         self.img_path = img_path
@@ -476,6 +476,7 @@ class MainFrame(wx.Frame):
             self.bssid = self.bssid.lower()
         self.ding_path = ding
         self.ding_command = ding_command
+        self.duration = duration
         self.CreateStatusBar()
         self.pnl = FloorplanPanel(self)
         self.makeMenuBar()
@@ -514,6 +515,9 @@ def parse_args(argv):
     p.add_argument('--ding-command', dest='ding_command', action='store',
                    type=str, default='/usr/bin/paplay',
                    help='Path to ding command')
+    p.add_argument('-d', '--duration', dest='duration', action='store',
+                   type=int, default=10,
+                   help='Duration of each individual ipref test run')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
     p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
     p.add_argument('IMAGE', type=str, help='Path to background image')
@@ -565,7 +569,7 @@ def main():
     app = wx.App()
     frm = MainFrame(
         args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE, args.scan,
-        args.bssid, args.ding, args.ding_command, None,
+        args.bssid, args.ding, args.ding_command, args.duration, None,
         title='wifi-survey: %s' % args.TITLE,
     )
     frm.Show()

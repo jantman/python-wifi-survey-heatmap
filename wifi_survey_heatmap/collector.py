@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 class Collector(object):
 
-    def __init__(self, interface_name, server_addr, scan=True):
+    def __init__(self, interface_name, server_addr, duration, scan=True):
         super().__init__()
         logger.debug(
             'Initializing Collector for interface: %s; iperf server: %s',
@@ -61,6 +61,7 @@ class Collector(object):
         self._interface_name = interface_name
         self._iperf_server = server_addr
         self._scan = scan
+        self._duration = duration
 
     def get_wifi_card(self, interface_name):
         # Check if this is a wireless device
@@ -77,6 +78,7 @@ class Collector(object):
 
     def run_iperf(self, udp=False, reverse=False):
         client = iperf3.Client()
+        client.duration = self._duration
         client.server_hostname = self._iperf_server
         client.port = 5201
         client.protocol = 'udp' if udp else 'tcp'

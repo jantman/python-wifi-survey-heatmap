@@ -68,6 +68,7 @@ Some other command-line options include:
 
 * ``-S`` / ``--no-scan`` to disable running iwlist scans at the end of each measurement. This greatly speeds up survey time but loses the data used for channel utilization graphs. If you're using a modern wireless product that allows running RF scans, it makes sense to use that data instead of iw scans.
 * ``-b`` / ``--bssid`` allows you to specify a single desired BSSID for your survey. This will be checked (iw config) at the beginning and end of every measurement, and the measurement will fail if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
+* ``-d`` / ``--duration`` allows you to change the duration of each individual `iperf3` test run (default is 10 seconds as mentioned above)
 
 When the UI loads, you should see your PNG file displayed. The UI is really simple:
 

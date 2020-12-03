@@ -325,7 +325,7 @@ class FloorplanPanel(wx.Panel):
             del self.survey_points[-1]
             return
 
-        # Get signal strength
+        # Get SSID
         self.parent.SetStatusText('Obtaining AP name...')
         self.Refresh()
         res['ssid'] = self.collector.get_ssid()

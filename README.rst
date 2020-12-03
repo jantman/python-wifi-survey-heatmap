@@ -106,13 +106,14 @@ You can optionally pass the path to a JSON file mapping the access point MAC add
 
 The end result of this process for a given survey (Title) should be some ``.png`` images in your current directory:
 
-* **channels24_TITLE.png** - Bar graph of average signal quality of APs seen on 2.4 GHz channels, by channel. Useful for visualizing channel contention. (Based on 20 MHz channel bandwidth)
-* **channels5_TITLE.png** - Bar graph of average signal quality of APs seen on 5 GHz channels, by channel. Useful for visualizing channel contention. (Based on per-channel bandwidth from 20 to 160 MHz)
-* **jitter_TITLE.png** - Heatmap based on UDP jitter measurement in milliseconds.
-* **rss_TITLE.png** - Heatmap based on the received signal strength.
-* **tcp_download_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, downloading from server to client.
-* **tcp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, uploading from client to server.
-* **udp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, UDP, uploading from client to server.
+* `channels24_TITLE.png` - Bar graph of average signal quality of APs seen on 2.4 GHz channels, by channel. Useful for visualizing channel contention. (Based on 20 MHz channel bandwidth)
+* `channels5_TITLE.png` - Bar graph of average signal quality of APs seen on 5 GHz channels, by channel. Useful for visualizing channel contention. (Based on per-channel bandwidth from 20 to 160 MHz)
+* `jitter_TITLE.png` - Heatmap based on UDP jitter measurement in milliseconds.
+* `rss_TITLE.png` - Heatmap based on the received signal strength.
+* `tcp_download_Mbps_TITLE.png` - Heatmap of `iperf3` transfer rate, TCP, downloading from server to client.
+* `tcp_upload_Mbps_TITLE.png` - Heatmap of `iperf3` transfer rate, TCP, uploading from client to server.
+* `udp_upload_Mbps_TITLE.png` - Heatmap of `iperf3` transfer rate, UDP, uploading from client to server.
+* `frequency_TITLE.png` - Heatmap of used frequency. May reveal zones in which Wi-Fi steering moved the device onto a different band (2.4GHz / 5 GHz co-existance).
 
 If you'd like to synchronize the colors/thresholds across multiple heatmaps, such as when comparing different AP placements, you can run ``wifi-heatmap-thresholds`` passing it each of the titles / output JSON filenames. This will generate a ``thresholds.json`` file in the current directory, suitable for passing to the ``wifi-heatmap`` ``-t`` / ``--thresholds`` option.
 

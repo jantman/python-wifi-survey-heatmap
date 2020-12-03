@@ -45,6 +45,7 @@ requires = [
     'cffi>=1.0.0',
     'iperf3==0.1.10',
     'matplotlib==3.3.0',
+    'PyRIC==0.1.6.3',
     'scipy==1.5.2'
 ]
 

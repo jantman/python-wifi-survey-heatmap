@@ -24,6 +24,7 @@ RUN apt-get update && \
     wireless-tools && \
   pip3 install \
     iperf3 \
+    PyRIC \
     iwlib
 
 COPY . /app

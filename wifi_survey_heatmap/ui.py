@@ -266,14 +266,18 @@ class FloorplanPanel(wx.Panel):
         self._moving_point.y = y
         self._moving_point.draw(dc, color='red')
 
-    def _check_bssid(self, data):
+    def _check_bssid(self):
+        # Return early if BSSID is not to be verified
         if self.parent.bssid is None:
             return True
-        bssid = data['Access Point'].decode().lower()
+        # Get BSSID from link
+        bssid = self.collector.get_bssid()
+        # Compare BSSID, exit early on match
         if bssid == self.parent.bssid:
             return True
+        # Error logging
         msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
-              f'BSSID {iwc["Access Point"]}'
+              f'BSSID {bssid}'
         self.parent.SetStatusText(msg)
         self.Refresh()
         self.warn(msg)
@@ -285,15 +289,25 @@ class FloorplanPanel(wx.Panel):
         self.Refresh()
         res = {}
         count = 0
-        iwc = self.collector.run_iwconfig()
-        if not self._check_bssid(iwc):
+        # Check if we are connected to an AP, all the
+        # rest doesn't any sense otherwise
+        if not self.collector.check_associated():
+            return
+        # Check BSSID
+        if not self._check_bssid():
             return
         for protoname, udp in {'tcp': False, 'udp': True}.items():
             for suffix, reverse in {'': False, '-reverse': True}.items():
                 if udp and reverse:
-                    logger.warning('Skipping reverse UDP; always fails')
+                    logger.debug('Skipping reverse UDP; always fails')
                     continue
                 count += 1
+
+                # Check if we're still connected to the same AP
+                if not self._check_bssid():
+                    return
+
+                # Start iperf test
                 tmp = self.run_iperf(count, udp, reverse)
                 if tmp is None:
                     # bail out; abort this survey point
@@ -305,17 +319,79 @@ class FloorplanPanel(wx.Panel):
                 res['%s%s' % (protoname, suffix)] = {
                     x: getattr(tmp, x, None) for x in RESULT_FIELDS
                 }
-        self.parent.SetStatusText('Running iwconfig...')
-        self.Refresh()
-        res['iwconfig'] = self.collector.run_iwconfig()
-        if not self._check_bssid(res['iwconfig']):
+
+        # Check if we're still connected to the same AP
+        if not self._check_bssid():
             del self.survey_points[-1]
             return
+
+        # Get signal strength
+        self.parent.SetStatusText('Obtaining AP name...')
         self.Refresh()
+        res['ssid'] = self.collector.get_ssid()
+
+        # Check if we're still connected to the same AP
+        if not self._check_bssid():
+            del self.survey_points[-1]
+            return
+
+        # Get signal strength
+        self.parent.SetStatusText('Obtaining signal strength...')
+        self.Refresh()
+        res['rss'] = self.collector.get_rss()
+
+        # Check if we're still connected to the same AP
+        if not self._check_bssid():
+            del self.survey_points[-1]
+            return
+
+        # Get signal frequency
+        self.parent.SetStatusText('Getting signal frequency...')
+        self.Refresh()
+        res['freq'] = self.collector.get_freq()
+
+        # Check if we're still connected to the same AP
+        if not self._check_bssid():
+            del self.survey_points[-1]
+            return
+
+        # Derive signal channel from frequency
+        self.parent.SetStatusText('Getting signal channel...')
+        self.Refresh()
+        res['chan'] = self.collector.get_channel(res['freq'])
+
+        # Check if we're still connected to the same AP
+        if not self._check_bssid():
+            del self.survey_points[-1]
+            returnget_channel_width
+
+        # Get channel width (in MHz)
+        self.parent.SetStatusText('Getting channel width...')
+        self.Refresh()
+        res['chan_width'] = self.collector.get_channel_width()
+
+        # Check if we're still connected to the same AP
+        if not self._check_bssid():
+            del self.survey_points[-1]
+            return
+
+        # Get current bitrate (in MBit/s)
+        self.parent.SetStatusText('Getting bitrate...')
+        self.Refresh()
+        res['bitrate'] = self.collector.get_bitrate()
+
+        # Check if we're still connected to the same AP
+        if not self._check_bssid():
+            del self.survey_points[-1]
+            return
+
+        # Scan APs in the neighborhood
         if self.parent.scan:
             self.parent.SetStatusText('Running iwscan...')
             self.Refresh()
             res['iwscan'] = self.collector.run_iwscan()
+
+        # Save results and mark survey point as complete
         self.survey_points[-1].set_result(res)
         self.survey_points[-1].set_is_finished()
         self.parent.SetStatusText(
@@ -356,8 +432,10 @@ class FloorplanPanel(wx.Panel):
         return result
 
     def run_iperf(self, count, udp, reverse):
+        proto = "UDP" if udp else "TCP"
+        direction = "Reverse"  if reverse else "Forward"
         self.parent.SetStatusText(
-            'Running iperf %d/3 (udp=%s, reverse=%s)' % (count, udp, reverse)
+            'Running iperf %d/3 (%s %s)' % (count, direction, proto)
         )
         self.Refresh()
         tmp = self.collector.run_iperf(udp, reverse)
@@ -427,7 +505,7 @@ def parse_args(argv):
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('-S', '--no-scan', dest='scan', action='store_false',
-                   default=True, help='skip iwlist scan')
+                   default=True, help='skip access point scan')
     p.add_argument('-b', '--bssid', dest='bssid', action='store', type=str,
                    default=None, help='Restrict survey to this BSSID')
     p.add_argument('--ding', dest='ding', action='store', type=str,

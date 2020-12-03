@@ -180,6 +180,10 @@ class Collector(object):
 
     def run_iwscan(self):
         logger.debug('Scanning...')
-        res = scan(self._interface_name)
-        logger.debug('scan result: %s', res)
-        return res
+        try:
+            res = scan(self._interface_name)
+            logger.debug('scan result: %s', res)
+            return res
+        except Exception as e:
+            logger.warning("iwscan failed: %s", e)
+            return None

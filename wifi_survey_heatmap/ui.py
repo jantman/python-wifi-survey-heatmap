@@ -390,6 +390,9 @@ class FloorplanPanel(wx.Panel):
             self.parent.SetStatusText('Running iwscan...')
             self.Refresh()
             res['iwscan'] = self.collector.run_iwscan()
+            if res['iwscan'] is None:
+                del self.survey_points[-1]
+                return
 
         # Save results and mark survey point as complete
         self.survey_points[-1].set_result(res)

@@ -94,6 +94,7 @@ class SurveyPoint(object):
         self.y = y
         self.is_finished = False
         self.is_failed = False
+        self.progress = 0
         self.result = {}
 
     def set_result(self, res):
@@ -110,20 +111,27 @@ class SurveyPoint(object):
 
     def set_is_failed(self):
         self.is_failed = True
+        self.progress = 0
+
+    def set_progress(self, value, total):
+        self.progress = int(100*value/total)
 
     def set_is_finished(self):
         self.is_finished = True
+        self.progress = 100
 
     def draw(self, dc, color=None):
         if color is None:
             color = 'green'
             if not self.is_finished:
-                color = 'yellow'
+                color = 'orange'
             if self.is_failed:
                 color = 'red'
         dc.SetPen(wx.Pen(color, style=wx.TRANSPARENT))
         dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawCircle(self.x, self.y, 20)
+        #dc.DrawText("a", self.x, self.y)
+        dc.DrawLabel("{}%".format(self.progress), wx.Rect(self.x-10, self.y-10, 20, 20), wx.ALIGN_CENTER)
 
     def erase(self, dc):
         """quicker than redrawing, since DC doesn't have persistence"""
@@ -167,7 +175,8 @@ class FloorplanPanel(wx.Panel):
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
-        self.collector = Collector(self.parent.interface, self.parent.server, self.parent.duration)
+        self._duration = self.parent.duration
+        self.collector = Collector(self.parent.interface, self.parent.server, self._duration)
         self.parent.SetStatusText("Ready.")
 
     def _load_file(self, fpath):
@@ -289,6 +298,8 @@ class FloorplanPanel(wx.Panel):
         self.Refresh()
         res = {}
         count = 0
+        # Number of steps in total (for the progress computation)
+        steps = 10
         # Check if we are connected to an AP, all the
         # rest doesn't any sense otherwise
         if not self.collector.check_associated():
@@ -302,6 +313,9 @@ class FloorplanPanel(wx.Panel):
                     logger.debug('Skipping reverse UDP; always fails')
                     continue
                 count += 1
+
+                # Update progress mark
+                self.survey_points[-1].set_progress(count, steps)
 
                 # Check if we're still connected to the same AP
                 if not self._check_bssid():
@@ -329,6 +343,7 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Obtaining AP name...')
         self.Refresh()
         res['ssid'] = self.collector.get_ssid()
+        self.survey_points[-1].set_progress(4, steps)
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
@@ -339,6 +354,7 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Obtaining signal strength...')
         self.Refresh()
         res['rss'] = self.collector.get_rss()
+        self.survey_points[-1].set_progress(5, steps)
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
@@ -349,6 +365,7 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Getting signal frequency...')
         self.Refresh()
         res['freq'] = self.collector.get_freq()
+        self.survey_points[-1].set_progress(6, steps)
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
@@ -359,16 +376,18 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Getting signal channel...')
         self.Refresh()
         res['chan'] = self.collector.get_channel(res['freq'])
+        self.survey_points[-1].set_progress(7, steps)
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
             del self.survey_points[-1]
-            returnget_channel_width
+            return
 
         # Get channel width (in MHz)
         self.parent.SetStatusText('Getting channel width...')
         self.Refresh()
         res['chan_width'] = self.collector.get_channel_width()
+        self.survey_points[-1].set_progress(8, steps)
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
@@ -379,6 +398,7 @@ class FloorplanPanel(wx.Panel):
         self.parent.SetStatusText('Getting bitrate...')
         self.Refresh()
         res['bitrate'] = self.collector.get_bitrate()
+        self.survey_points[-1].set_progress(9, steps)
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
@@ -393,6 +413,7 @@ class FloorplanPanel(wx.Panel):
             if res['iwscan'] is None:
                 del self.survey_points[-1]
                 return
+        self.survey_points[-1].set_progress(10, steps)
 
         # Save results and mark survey point as complete
         self.survey_points[-1].set_result(res)
@@ -436,9 +457,9 @@ class FloorplanPanel(wx.Panel):
 
     def run_iperf(self, count, udp, reverse):
         proto = "UDP" if udp else "TCP"
-        direction = "Reverse"  if reverse else "Forward"
+        direction = "Upload"  if reverse else "Download"
         self.parent.SetStatusText(
-            'Running iperf %d/3 (%s %s)' % (count, direction, proto)
+            'Running iperf %d/3: %s (%s) - takes %i seconds' % (count, direction, proto, self._duration)
         )
         self.Refresh()
         tmp = self.collector.run_iperf(udp, reverse)

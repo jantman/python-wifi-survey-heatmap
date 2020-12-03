@@ -128,11 +128,10 @@ WIFI_CHANNELS = {
 class HeatMapGenerator(object):
 
     graphs = {
-        'rssi': 'RSSI (level)',
-        'quality': 'iwstats Quality',
+        'rss': 'RSS (received signal strength)',
         'tcp_upload_Mbps': 'TCP Upload Mbps',
         'tcp_download_Mbps': 'TCP Download Mbps',
-        'udp_Mbps': 'UDP Upload Mbps',
+        'udp_upload_Mbps': 'UDP Upload Mbps',
         'jitter': 'UDP Jitter (ms)'
     }
 
@@ -173,22 +172,21 @@ class HeatMapGenerator(object):
         for row in self._data:
             a['x'].append(row['x'])
             a['y'].append(row['y'])
-            a['rssi'].append(row['result']['iwconfig']['stats']['level'])
-            a['quality'].append(row['result']['iwconfig']['stats']['quality'])
+            a['rss'].append(row['result']['rss'])
             a['tcp_upload_Mbps'].append(row['result']['tcp']['sent_Mbps'])
             a['tcp_download_Mbps'].append(
                 row['result']['tcp-reverse']['received_Mbps']
             )
-            a['udp_Mbps'].append(row['result']['udp']['Mbps'])
+            a['udp_upload_Mbps'].append(row['result']['udp']['Mbps'])
             a['jitter'].append(row['result']['udp']['jitter_ms'])
             ap = self._ap_names.get(
-                row['result']['iwconfig']['Access Point'].upper(),
-                row['result']['iwconfig']['Access Point']
+                row['result']['ssid'].upper(),
+                row['result']['ssid']
             )
-            if row['result']['iwconfig']['Frequency'].startswith('2.4'):
-                a['ap'].append(ap + '_2.4')
+            if row['result']['freq'] < 5:
+                a['ap'].append(ap + '_2.4GHz')
             else:
-                a['ap'].append(ap + '_5G')
+                a['ap'].append(ap + '_5GHz')
         return a
 
     def _load_image(self):

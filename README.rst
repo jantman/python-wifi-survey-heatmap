@@ -104,13 +104,12 @@ Once you've performed a survey with a given title and the results are saved in `
 
 You can optionally pass the path to a JSON file mapping the access point MAC addresses (BSSIDs) to friendly names via the ``-a`` / ``--ap-names`` argument. If specified, this will annotate each measurement dot on the heatmap with the name (mapping value) and frequency band of the AP that was connected when the measurement was taken. This can be useful in multi-AP roaming environments.
 
-The end result of this process for a given survey (Title) should be 8 ``.png`` images in your current directory:
+The end result of this process for a given survey (Title) should be some ``.png`` images in your current directory:
 
 * **channels24_TITLE.png** - Bar graph of average signal quality of APs seen on 2.4 GHz channels, by channel. Useful for visualizing channel contention. (Based on 20 MHz channel bandwidth)
 * **channels5_TITLE.png** - Bar graph of average signal quality of APs seen on 5 GHz channels, by channel. Useful for visualizing channel contention. (Based on per-channel bandwidth from 20 to 160 MHz)
 * **jitter_TITLE.png** - Heatmap based on UDP jitter measurement in milliseconds.
-* **quality_TITLE.png** - Heatmap based on iwconfig's "quality" metric.
-* **rssi_TITLE.png** - Heatmap based on iwconfig's signal strength (rssi) metric.
+* **rss_TITLE.png** - Heatmap based on the received signal strength.
 * **tcp_download_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, downloading from server to client.
 * **tcp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, uploading from client to server.
 * **udp_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, UDP, uploading from client to server.

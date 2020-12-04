@@ -139,7 +139,7 @@ class HeatMapGenerator(object):
     }
 
     def __init__(
-        self, image_path, title, showpoints, ignore_ssids=[], aps=None,
+        self, image_path, title, showpoints, cname, ignore_ssids=[], aps=None,
         thresholds=None
     ):
         self._ap_names = {}
@@ -155,6 +155,7 @@ class HeatMapGenerator(object):
         self._corners = [(0, 0), (0, 0), (0, 0), (0, 0)]
         self._title = title
         self._showpoints = showpoints
+        self._cname = cname
         if not self._title.endswith('.json'):
             self._title += '.json'
         self._ignore_ssids = ignore_ssids
@@ -355,14 +356,16 @@ class HeatMapGenerator(object):
         else:
             vmax = max(a[key])
             logger.debug('Using calculated max threshold: %s', vmax)
+
+        cmap = pp.get_cmap(self._cname)
         norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
-        mapper = cm.ScalarMappable(norm=norm, cmap='RdYlBu_r')
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap)
         # end color mapping
         image = pp.imshow(
             z,
             extent=(0, self._image_width, self._image_height, 0),
-            cmap='RdYlBu_r', alpha=0.5, zorder=100,
-            vmin=vmin, vmax=vmax
+            alpha=0.5, zorder=100,
+            cmap=cmap, vmin=vmin, vmax=vmax
         )
         pp.colorbar(image)
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
@@ -409,6 +412,9 @@ def parse_args(argv):
                         'a string to label each measurement with, showing '
                         'which AP it was connected to. Useful when doing '
                         'multi-AP surveys.')
+    p.add_argument('-c', '--cmap-name', type=str, dest='cname', action='store',
+                   default="RdYlBu_r",
+                   help='If specified, a valid matplotlib colormap name.')
     p.add_argument('IMAGE', type=str, help='Path to background image')
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
@@ -417,6 +423,7 @@ def parse_args(argv):
                    default=0, help='show measurement points in file')
     args = p.parse_args(argv)
     return args
+
 
 
 def set_log_info():
@@ -460,7 +467,7 @@ def main():
     showpoints = True if args.showpoints > 0 else False
 
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, showpoints, ignore_ssids=args.ignore,
+        args.IMAGE, args.TITLE, showpoints, args.cname, ignore_ssids=args.ignore,
         aps=args.aps, thresholds=args.thresholds
     ).generate()
 

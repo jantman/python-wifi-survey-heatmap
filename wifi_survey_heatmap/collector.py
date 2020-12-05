@@ -38,16 +38,11 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import logging
 from time import sleep
 
-from wifi_survey_heatmap.vendor.iwlib.iwlist import scan
-import pyric
-import pyric.pyw as pyw
-import pyric.utils as wireless_utils
-import pyric.lib.libnl as nl
+from wifi_survey_heatmap.nl_scan import Scanner
 
 import iperf3
 
 logger = logging.getLogger(__name__)
-
 
 class Collector(object):
 
@@ -58,26 +53,12 @@ class Collector(object):
             interface_name, server_addr
         )
         # ensure interface_name is a wireless interfaces
-        self._nlsocket = nl.nl_socket_alloc()
-        self._wifi_card = self.get_wifi_card(interface_name)
         self._interface_name = interface_name
         self._iperf_server = server_addr
         self._scan = scan
         self._duration = duration
 
-    def get_wifi_card(self, interface_name):
-        # Check if this is a wireless device
-        wifaces = pyw.winterfaces()
-        if interface_name not in wifaces:
-            logger.error("Device {0} is not a valid wireless interface, use"
-                         " one of {1}".format(interface_name, wifaces))
-            exit(1)
-
-        # Get WiFi card handle
-        card = pyw.getcard(interface_name, nlsock=self._nlsocket)
-        linfo = pyw.link(card, nlsock=self._nlsocket)
-        logger.debug('Connected to AP with SSID "%s"', linfo['ssid'])
-        return card
+        self.scanner = Scanner(interface_name, scan)
 
     def run_iperf(self, udp=False, reverse=False):
         client = iperf3.Client()
@@ -115,73 +96,19 @@ class Collector(object):
 
     def check_associated(self):
         logger.debug('Checking association with AP...')
-        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
-        if "stat" not in linfo or linfo["stat"] is not "associated":
+        data = self.scanner.get_iface_data(update=True)
+        if "bssid" not in data:
             logger.warning('Not associated to an AP')
             return False
         else:
             logger.debug("OK")
             return True
+    
+    def get_metrics(self):
+        return self.scanner.get_iface_data()
 
-    def get_bssid(self):
-        logger.debug('Getting BSSID...')
-        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
-        res = linfo['bssid']
-        logger.debug('BSSID is %s', res)
-        return res
-
-    def get_ssid(self):
-        logger.debug('Getting SSID...')
-        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
-        res = linfo['ssid']
-        logger.debug('SSID is %s', res)
-        return res
-
-    def get_rss(self):
-        logger.debug('Getting received signal strength (RSS)...')
-        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
-        res = linfo['rss']
-        logger.debug('RSS is %s', res)
-        return res
-
-    def get_freq(self):
-        logger.debug('Getting frequency...')
-        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
-        res = linfo['freq']
-        logger.debug('Frequency is %s', res)
-        return res
-
-    def get_channel(self, freq):
-        logger.debug('Getting channel from frequency...')
-        res = wireless_utils.channels.rf2ch(freq)
-        logger.debug('Channel is %s', res)
-        return res
-
-    def get_channel_width(self):
-        logger.debug('Getting channel width...')
-        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
-        res = linfo['chw']
-        logger.debug('Channel width is %s MHz', res)
-        return res
-
-    def get_bitrate(self):
-        logger.debug('Getting bitrate width...')
-        linfo = pyw.link(self._wifi_card, nlsock=self._nlsocket)
-        if 'bitrate' in linfo['rx'] and 'rate' in linfo['rx']['bitrate']:
-            bitrate = linfo['rx']['bitrate']['rate']
-        elif 'bitrate' in linfo['tx'] and 'rate' in linfo['tx']['bitrate']:
-            bitrate = linfo['tx']['bitrate']['rate']
-        else:
-            bitrate = -1.0
-        logger.debug('Bitrate is %.1f MBit/s', bitrate)
-        return bitrate
-
-    def run_iwscan(self):
+    def scan_all_access_points(self):
         logger.debug('Scanning...')
-        try:
-            res = scan(self._interface_name)
-            logger.debug('scan result: %s', res)
-            return res
-        except Exception as e:
-            logger.warning("iwscan failed: %s", e)
-            return None
+        res = self.scanner.scan_all_access_points()
+        logger.debug('Found {} access points during scan'.format(len(res)))
+        return res

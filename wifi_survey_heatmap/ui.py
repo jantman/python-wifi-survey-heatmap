@@ -283,7 +283,8 @@ class FloorplanPanel(wx.Panel):
         if self.parent.bssid is None:
             return True
         # Get BSSID from link
-        bssid = self.collector.get_bssid()
+        data = self.collector.scanner.get_iface_data(update=True)
+        bssid = data['bssid']
         # Compare BSSID, exit early on match
         if bssid == self.parent.bssid:
             return True
@@ -302,7 +303,7 @@ class FloorplanPanel(wx.Panel):
         res = {}
         count = 0
         # Number of steps in total (for the progress computation)
-        steps = 10
+        steps = 5
         # Check if we are connected to an AP, all the
         # rest doesn't any sense otherwise
         if not self.collector.check_associated():
@@ -312,10 +313,9 @@ class FloorplanPanel(wx.Panel):
             return
         for protoname, udp in {'tcp': False, 'udp': True}.items():
             for suffix, reverse in {'': False, '-reverse': True}.items():
-                count += 1
-
                 # Update progress mark
                 self.survey_points[-1].set_progress(count, steps)
+                count += 1
 
                 # Check if we're still connected to the same AP
                 if not self._check_bssid():
@@ -339,81 +339,20 @@ class FloorplanPanel(wx.Panel):
             del self.survey_points[-1]
             return
 
-        # Get SSID
-        self.parent.SetStatusText('Obtaining AP name...')
+        # Get all signal metrics from nl
+        self.parent.SetStatusText('Getting signal metrics (Quality, signal strength, etc.)...')
         self.Refresh()
-        res['ssid'] = self.collector.get_ssid()
+        data = self.collector.scanner.get_iface_data()
+        # Merge dicts
+        res = {**res, **data}
         self.survey_points[-1].set_progress(4, steps)
-
-        # Check if we're still connected to the same AP
-        if not self._check_bssid():
-            del self.survey_points[-1]
-            return
-
-        # Get signal strength
-        self.parent.SetStatusText('Obtaining signal strength...')
-        self.Refresh()
-        res['rss'] = self.collector.get_rss()
-        self.survey_points[-1].set_progress(5, steps)
-
-        # Check if we're still connected to the same AP
-        if not self._check_bssid():
-            del self.survey_points[-1]
-            return
-
-        # Get signal frequency
-        self.parent.SetStatusText('Getting signal frequency...')
-        self.Refresh()
-        res['freq'] = self.collector.get_freq()
-        self.survey_points[-1].set_progress(6, steps)
-
-        # Check if we're still connected to the same AP
-        if not self._check_bssid():
-            del self.survey_points[-1]
-            return
-
-        # Derive signal channel from frequency
-        self.parent.SetStatusText('Getting signal channel...')
-        self.Refresh()
-        res['chan'] = self.collector.get_channel(res['freq'])
-        self.survey_points[-1].set_progress(7, steps)
-
-        # Check if we're still connected to the same AP
-        if not self._check_bssid():
-            del self.survey_points[-1]
-            return
-
-        # Get channel width (in MHz)
-        self.parent.SetStatusText('Getting channel width...')
-        self.Refresh()
-        res['chan_width'] = self.collector.get_channel_width()
-        self.survey_points[-1].set_progress(8, steps)
-
-        # Check if we're still connected to the same AP
-        if not self._check_bssid():
-            del self.survey_points[-1]
-            return
-
-        # Get current bitrate (in MBit/s)
-        self.parent.SetStatusText('Getting bitrate...')
-        self.Refresh()
-        res['channel_bitrate'] = self.collector.get_bitrate()
-        self.survey_points[-1].set_progress(9, steps)
-
-        # Check if we're still connected to the same AP
-        if not self._check_bssid():
-            del self.survey_points[-1]
-            return
 
         # Scan APs in the neighborhood
         if self.parent.scan:
-            self.parent.SetStatusText('Running iwscan...')
+            self.parent.SetStatusText('Scanning all access points within reach...')
             self.Refresh()
-            res['iwscan'] = self.collector.run_iwscan()
-            if res['iwscan'] is None:
-                del self.survey_points[-1]
-                return
-        self.survey_points[-1].set_progress(10, steps)
+            res['scan_results'] = self.collector.scan_all_access_points()
+        self.survey_points[-1].set_progress(5, steps)
 
         # Save results and mark survey point as complete
         self.survey_points[-1].set_result(res)
@@ -433,7 +372,7 @@ class FloorplanPanel(wx.Panel):
     def _write_json(self):
         res = json.dumps(
             [x.as_dict for x in self.survey_points],
-            cls=SafeEncoder
+            cls=SafeEncoder, indent=2
         )
         with open(self.data_filename, 'w') as fh:
             fh.write(res)

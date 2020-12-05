@@ -29,8 +29,8 @@ Installation and Dependencies
 
 **NOTE: These can all be ignored when using Docker. See below.**
 
-* The Python `iwlib <https://pypi.org/project/iwlib/>`_ package, which needs cffi and the Linux ``wireless_tools`` package.
 * The Python `iperf3 <https://pypi.org/project/iperf3/>`_ package, which needs `iperf3 <http://software.es.net/iperf/>`_ installed on your system.
+* The Python `libiw <https://pypi.org/project/libiw/>`_ package.
 * `wxPython Phoenix <https://wiki.wxpython.org/How%20to%20install%20wxPython>`_, which unfortunately must be installed using OS packages or built from source.
 * An iperf3 server running on another system on the LAN, as described below.
 
@@ -46,8 +46,8 @@ At each survey location, data collection should take 45-60 seconds. The data col
 * 10-second iperf3 measurement, TCP, client (this app) sending to server, default iperf3 options
 * 10-second iperf3 measurement, TCP, server sending to client, default iperf3 options
 * 10-second iperf3 measurement, UDP, client (this app) sending to server, default iperf3 options
-* Recording of advertised channel bandwidth, bitrate and signal strength
-* ``iwlist`` scan of all visible access points
+* Recording of various WiFi details such as advertised channel bandwidth, bitrate, or signal strength
+* Scan of all visible access points in the vicinity
 
 Hints:
 - The duration of the bandwidth measurement can be changed using the `--duration` argument of `wifi-survey`. This has great influence on the actual length of the individual data collections.

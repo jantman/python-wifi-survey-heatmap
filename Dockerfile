@@ -10,10 +10,8 @@ RUN apt-get update && \
     iperf3 \
     gcc \
     git \
-    libiw-dev \
     pulseaudio-utils \
     python3 \
-    python3-cffi \
     python3-dev \
     python3-matplotlib \
     python3-pip \
@@ -23,9 +21,7 @@ RUN apt-get update && \
     python3-wxgtk4.0 \
     wireless-tools && \
   pip3 install \
-    iperf3 \
-    PyRIC \
-    iwlib
+    iperf3
 
 COPY . /app
 

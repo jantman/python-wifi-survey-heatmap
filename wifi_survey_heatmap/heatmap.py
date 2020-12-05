@@ -39,6 +39,7 @@ import sys
 import argparse
 import logging
 import json
+import numpy
 
 from collections import defaultdict
 import numpy as np
@@ -340,15 +341,6 @@ class HeatMapGenerator(object):
             self._image_width / 300, self._image_height / 300
         )
         pp.title(title)
-        # Interpolate the data
-        rbf = Rbf(
-            a['x'], a['y'], a[key], function='linear'
-        )
-        z = rbf(gx, gy)
-        z = z.reshape((num_y, num_x))
-        # Render the interpolated data to the plot
-        pp.axis('off')
-        # begin color mapping
         if 'min' in self.thresholds.get(key, {}):
             vmin = self.thresholds[key]['min']
             logger.debug('Using min threshold from thresholds: %s', vmin)
@@ -361,6 +353,21 @@ class HeatMapGenerator(object):
         else:
             vmax = max(a[key])
             logger.debug('Using calculated max threshold: %s', vmax)
+        logger.info("{} has range [{},{}]".format(key, vmin, vmax))
+        # Interpolate the data only if there is something to interpolate
+        if vmin != vmax:
+            rbf = Rbf(
+                a['x'], a['y'], a[key], function='linear'
+            )
+            z = rbf(gx, gy)
+            z = z.reshape((num_y, num_x))
+        else:
+            # Uniform array with the same color everywhere
+            # (avoids interpolation artifacts)
+            z = numpy.ones((num_y, num_x))*vmin
+        # Render the interpolated data to the plot
+        pp.axis('off')
+        # begin color mapping
 
         cmap = pp.get_cmap(self._cname)
         norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
@@ -372,7 +379,12 @@ class HeatMapGenerator(object):
             alpha=0.5, zorder=100,
             cmap=cmap, vmin=vmin, vmax=vmax
         )
-        pp.colorbar(image)
+        cbar = pp.colorbar(image)
+        # Print only one ytick label when there is only one value to be shown
+        print(dir(cbar))
+        print(dir(cbar.ax))
+        if vmin == vmax:
+            cbar.set_ticks([vmin])
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
         labelsize = FontManager.get_default_size() * 0.4
         if(self._showpoints):

@@ -44,6 +44,7 @@ from collections import defaultdict
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.pyplot as pp
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import Rbf
 from pylab import imread, imshow
 from matplotlib.offsetbox import AnchoredText
@@ -128,14 +129,16 @@ WIFI_CHANNELS = {
 class HeatMapGenerator(object):
 
     graphs = {
-        'rss': 'RSS (received signal strength) [dBm]',
+        'signal_quality': 'Signal quality [%]',
+        'tx_power': 'TX power [dBm]',
         'tcp_download_Mbps': 'Download (TCP) [MBit/s]',
         'udp_download_Mbps': 'Download (UDP) [MBit/s]',
         'tcp_upload_Mbps': 'Upload (TCP) [MBit/s]',
         'udp_upload_Mbps': 'Upload (UDP) [MBit/s]',
         'jitter': 'UDP Jitter [ms]',
-        'frequency': 'Wi-Fi frequency [MHz]',
+        'channel': 'Wi-Fi channel',
         'channel_bitrate': 'Maximum channel bandwidth [MBit/s]',
+
     }
 
     def __init__(
@@ -178,7 +181,7 @@ class HeatMapGenerator(object):
         for row in self._data:
             a['x'].append(row['x'])
             a['y'].append(row['y'])
-            a['rss'].append(row['result']['rss'])
+            a['channel'].append(row['result']['channel'])
             a['tcp_upload_Mbps'].append(
                 row['result']['tcp']['received_Mbps']
             )
@@ -188,13 +191,15 @@ class HeatMapGenerator(object):
             a['udp_download_Mbps'].append(row['result']['udp']['Mbps'])
             a['udp_upload_Mbps'].append(row['result']['udp-reverse']['Mbps'])
             a['jitter'].append(row['result']['udp']['jitter_ms'])
-            a['frequency'].append(row['result']['freq'])
-            a['channel_bitrate'].append(row['result']['channel_bitrate'])
+            a['tx_power'].append(row['result']['tx_power'])
+            a['frequency'].append(row['result']['frequency'])
+            a['channel_bitrate'].append(row['result']['bitrate'])
+            a['signal_quality'].append(row['result']['signal_mbm']+130)
             ap = self._ap_names.get(
                 row['result']['ssid'].upper(),
                 row['result']['ssid']
             )
-            if row['result']['freq'] < 5:
+            if row['result']['frequency'] < 5000:
                 a['ap'].append(ap + '_2.4GHz')
             else:
                 a['ap'].append(ap + '_5GHz')
@@ -246,11 +251,11 @@ class HeatMapGenerator(object):
         # build a dict of frequency (GHz) to list of quality values
         channels = defaultdict(list)
         for row in self._data:
-            for scan in row['result']['iwscan']:
-                if scan['ESSID'] in self._ignore_ssids:
+            for scan in row['result']['scan_results']:
+                if row['result']['scan_results'][scan]['ssid'] in self._ignore_ssids:
                     continue
-                channels[scan['Frequency'] / 1000000].append(
-                    scan['stats']['quality']
+                channels[row['result']['scan_results'][scan]['frequency'] / 1000000].append(
+                    row['result']['scan_results'][scan]['signal_mbm'] + 100
                 )
         # collapse down to dict of frequency (GHz) to average quality (float)
         for freq in channels.keys():

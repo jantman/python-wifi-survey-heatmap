@@ -75,6 +75,7 @@ from libnl.msg import nlmsg_alloc, nlmsg_data, nlmsg_hdr
 from libnl.nl import nl_recvmsgs_default, nl_send_auto
 from libnl.nl80211 import nl80211
 from libnl.socket_ import nl_socket_alloc, nl_socket_modify_cb
+from ctypes import c_int32
 
 logger = logging.getLogger(__name__)
 
@@ -388,7 +389,7 @@ class Scanner(object):
             iface_data['ch_width'] = nla_get_u32(tb[nl80211.NL80211_ATTR_CHANNEL_WIDTH])
 
         if tb[nl80211.NL80211_ATTR_CENTER_FREQ1]:
-            iface_data['freq'] = nla_get_u32(tb[nl80211.NL80211_ATTR_CENTER_FREQ1])
+            iface_data['frequency'] = nla_get_u32(tb[nl80211.NL80211_ATTR_CENTER_FREQ1])
 
         # Station infos
         if tb[nl80211.NL80211_ATTR_STA_INFO]:
@@ -398,6 +399,9 @@ class Scanner(object):
 
             if sinfo[nl80211.NL80211_STA_INFO_SIGNAL]:
                 iface_data['signal'] = 100 + nla_get_u8(sinfo[nl80211.NL80211_STA_INFO_SIGNAL])
+                # Compute quality (formula found in iwinfo_nl80211.c and largely simplified)
+                iface_data['quality'] = iface_data['signal'] + 110
+                iface_data['quality_max'] = 70
 
             if sinfo[nl80211.NL80211_STA_INFO_TX_BITRATE]:
                 rinfo = dict((i, None) for i in range(nl80211.NL80211_STA_INFO_TX_BITRATE)) 

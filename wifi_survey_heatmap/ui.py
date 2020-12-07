@@ -95,6 +95,7 @@ class SurveyPoint(object):
         self.is_finished = False
         self.is_failed = False
         self.progress = 0
+        self.dotSize = 20
         self.result = {}
 
     def set_result(self, res):
@@ -129,17 +130,27 @@ class SurveyPoint(object):
                 color = 'red'
         dc.SetPen(wx.Pen(color, style=wx.TRANSPARENT))
         dc.SetBrush(wx.Brush(color, wx.SOLID))
-        dc.DrawCircle(self.x, self.y, 20)
+
+        # Relative scaling
+        x = self.x / self.parent.scale_x
+        y = self.y / self.parent.scale_y
+
+        # Draw circle
+        dc.DrawCircle(x, y, self.dotSize)
 
         # Put progress label on top of the circle
         dc.DrawLabel("{}%".format(self.progress), wx.Rect(
-            self.x-10, self.y-10, 20, 20), wx.ALIGN_CENTER)
+            x-self.dotSize/2, y-self.dotSize/2,
+            self.dotSize, self.dotSize), wx.ALIGN_CENTER)
 
     def erase(self, dc):
         """quicker than redrawing, since DC doesn't have persistence"""
         dc.SetPen(wx.Pen('white', style=wx.TRANSPARENT))
         dc.SetBrush(wx.Brush('white', wx.SOLID))
-        dc.DrawCircle(self.x, self.y, 22)
+        # Relative scaling
+        x = self.x / self.parent.scale_x
+        y = self.y / self.parent.scale_y
+        dc.DrawCircle(x, y, 1.1*self.dotSize)
 
     def includes_point(self, x, y):
         if (
@@ -174,6 +185,8 @@ class FloorplanPanel(wx.Panel):
         self._moving_point = None
         self._moving_x = None
         self._moving_y = None
+        self.scale_x = 1.0
+        self.scale_y = 1.0
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
@@ -200,11 +213,36 @@ class FloorplanPanel(wx.Panel):
             rect = self.GetUpdateRegion().GetBox()
             dc.SetClippingRect(rect)
         dc.Clear()
+
+        # Get window size
+        W, H = self.GetSize()
+
+        # Load floorplan
         bmp = wx.Bitmap(self.img_path)
-        dc.DrawBitmap(bmp, 0, 0)
+        image = wx.Bitmap.ConvertToImage(bmp)
+
+        # Store scaling factors for pixel corrections
+        self.scale_x = image.GetWidth() / W
+        self.scale_y = image.GetHeight() / H
+
+        # Scale image to window size
+        logger.debug("Scaling image to {} x {}".format(W, H))
+        image = image.Scale(W, H, wx.IMAGE_QUALITY_HIGH)
+
+        # Draw image
+        scaled_bmp = wx.Bitmap(image)
+        dc.DrawBitmap(scaled_bmp, 0, 0)
+
+    # Get X and Y coordinated scaled to ABSOLUTE coordinates of the floorplan
+    def get_xy(self, event):
+        X, Y = event.GetPosition()
+        W, H = self.GetSize()
+        x = int(X * self.scale_x)
+        y = int(Y * self.scale_y)
+        return [x, y]
 
     def onRightClick(self, event):
-        x, y = event.GetPosition()
+        x, y = self.get_xy(event)
         point = None
         for p in self.survey_points:
             # important to iterate the whole list, so we find the most recent
@@ -229,7 +267,7 @@ class FloorplanPanel(wx.Panel):
         self._write_json()
 
     def onLeftDown(self, event):
-        x, y = event.GetPosition()
+        x, y = self.get_xy(event)
         point = None
         for p in self.survey_points:
             # important to iterate the whole list, so we find the most recent
@@ -247,10 +285,10 @@ class FloorplanPanel(wx.Panel):
         point.draw(wx.ClientDC(self), color='blue')
 
     def onLeftUp(self, event):
+        x, y = pos = self.get_xy(event)
         if self._moving_point is None:
-            self._do_measurement(event.GetPosition())
+            self._do_measurement(pos)
             return
-        x, y = event.GetPosition()
         oldx = self._moving_point.x
         oldy = self._moving_point.y
         self._moving_point.x = x
@@ -271,7 +309,7 @@ class FloorplanPanel(wx.Panel):
     def onMotion(self, event):
         if self._moving_point is None:
             return
-        x, y = event.GetPosition()
+        x, y = pos = self.get_xy(event)
         dc = wx.ClientDC(self)
         self._moving_point.erase(dc)
         self._moving_point.x = x
@@ -530,6 +568,11 @@ def set_log_level_format(level, format):
 
 
 def main():
+    if os.getuid() != 0:
+        logger.warning("You should run this script as root"
+                       " to be able to trigger Wi-Fi scans.")
+
+    # Parse input arguments
     args = parse_args(sys.argv[1:])
 
     # set logging level

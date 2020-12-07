@@ -38,8 +38,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import logging
 from time import sleep
 
-from wifi_survey_heatmap.vendor.iwlib.iwconfig import get_iwconfig
-from wifi_survey_heatmap.vendor.iwlib.iwlist import scan
+from wifi_survey_heatmap.libnl import Scanner
 
 import iperf3
 
@@ -48,18 +47,23 @@ logger = logging.getLogger(__name__)
 
 class Collector(object):
 
-    def __init__(self, interface_name, server_addr, scan=True):
+    def __init__(self, interface_name, server_addr, duration, scan=True):
         super().__init__()
         logger.debug(
             'Initializing Collector for interface: %s; iperf server: %s',
             interface_name, server_addr
         )
+        # ensure interface_name is a wireless interfaces
         self._interface_name = interface_name
         self._iperf_server = server_addr
         self._scan = scan
+        self._duration = duration
+
+        self.scanner = Scanner(interface_name, scan)
 
     def run_iperf(self, udp=False, reverse=False):
         client = iperf3.Client()
+        client.duration = self._duration
         client.server_hostname = self._iperf_server
         client.port = 5201
         client.protocol = 'udp' if udp else 'tcp'
@@ -76,42 +80,21 @@ class Collector(object):
         logger.debug('iperf result: %s', res)
         return res
 
-    def _run_all_iperf(self):
-        res = {'tcp': {}, 'udp': {}}
-        for proto_name, udp in {'tcp': False, 'udp': True}.items():
-            for dest_name, reverse in {
-                'client_to_server': False,
-                'server_to_client': True
-            }.items():
-                tmp = self.run_iperf(udp, reverse)
-                if 'end' in tmp.json:
-                    tmp = tmp.json['end']
-                res[proto_name][dest_name] = tmp
-                logger.debug('Sleeping 2s before next iperf run')
-                sleep(2)
-        return res
+    def check_associated(self):
+        logger.debug('Checking association with AP...')
+        data = self.scanner.get_iface_data(update=True)
+        if "bssid" not in data:
+            logger.warning('Not associated to an AP')
+            return False
+        else:
+            logger.debug("OK")
+            return True
 
-    def run_iwconfig(self):
-        logger.debug('Getting iwconfig...')
-        res = get_iwconfig(self._interface_name)
-        logger.debug('iwconfig result: %s', res)
-        return res
+    def get_metrics(self):
+        return self.scanner.get_iface_data()
 
-    def run_iwscan(self):
+    def scan_all_access_points(self):
         logger.debug('Scanning...')
-        res = scan(self._interface_name)
-        logger.debug('scan result: %s', res)
-        return res
-
-    def run(self):
-        res = {
-            'iperf': self._run_all_iperf()
-        }
-        logger.debug('Getting iwconfig...')
-        res['config'] = get_iwconfig(self._interface_name)
-        logger.debug('iwconfig result: %s', res['config'])
-        if self._scan:
-            logger.debug('Scanning...')
-            res['scan'] = scan(self._interface_name)
-            logger.debug('scan result: %s', res['scan'])
+        res = self.scanner.scan_all_access_points()
+        logger.debug('Found {} access points during scan'.format(len(res)))
         return res

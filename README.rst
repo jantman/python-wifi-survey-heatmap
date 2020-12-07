@@ -15,13 +15,22 @@ the results as a heatmap overlayed on a floorplan.
 This is very rough, very alpha code. The heatmap generation code is roughly based on
 `Beau Gunderson's MIT-licensed wifi-heatmap code <https://github.com/beaugunderson/wifi-heatmap>`_.
 
+Quick start
+-----------
+
+Check out the **Running In Docker** steps below to get single-line commands that run without the need to install *anything* on your computer (thanks to using `docker`).
+Creating a heatmap using the software consists of the following three essential steps:
+1. Start an `iperf3` server on any machine in your local network. This server is used for bandwidth measurements to be independent of your Internet connection.
+2. Use the `wifi-survey` tool to record a measurement. You can load a floorplan and click on your current location ot record signal strength and determine the achievable bandwidth.
+3. Once done with all the measurements, use the `wifi-heatmap` tool to compute a high-resolution heatmap from your recorded data. In case your data turns out to be too coarse, you can always go back to step 2 and delete or move old and also add new measurements at any time.
+
 Installation and Dependencies
 -----------------------------
 
 **NOTE: These can all be ignored when using Docker. See below.**
 
-* The Python `iwlib <https://pypi.org/project/iwlib/>`_ package, which needs cffi and the Linux ``wireless_tools`` package.
 * The Python `iperf3 <https://pypi.org/project/iperf3/>`_ package, which needs `iperf3 <http://software.es.net/iperf/>`_ installed on your system.
+* The Python `libiw <https://pypi.org/project/libiw/>`_ package.
 * `wxPython Phoenix <https://wiki.wxpython.org/How%20to%20install%20wxPython>`_, which unfortunately must be installed using OS packages or built from source.
 * An iperf3 server running on another system on the LAN, as described below.
 
@@ -37,8 +46,12 @@ At each survey location, data collection should take 45-60 seconds. The data col
 * 10-second iperf3 measurement, TCP, client (this app) sending to server, default iperf3 options
 * 10-second iperf3 measurement, TCP, server sending to client, default iperf3 options
 * 10-second iperf3 measurement, UDP, client (this app) sending to server, default iperf3 options
-* ``iwconfig`` capture for current AP/ESSID/BSSID, frequency, bitrate, and quality/level/noise stats
-* ``iwlist`` scan of all visible access points
+* Recording of various WiFi details such as advertised channel bandwidth, bitrate, or signal strength
+* Scan of all visible access points in the vicinity
+
+Hints:
+- The duration of the bandwidth measurement can be changed using the `--duration` argument of `wifi-survey`. This has great influence on the actual length of the individual data collections.
+- Scanning for other network takes rather long. As this isn't required in most cases, you can skip this using `wifi-survey --no-scan`
 
 Usage
 -----
@@ -67,7 +80,8 @@ If ``Title.json`` already exists, the data from it will be pre-loaded into the a
 Some other command-line options include:
 
 * ``-S`` / ``--no-scan`` to disable running iwlist scans at the end of each measurement. This greatly speeds up survey time but loses the data used for channel utilization graphs. If you're using a modern wireless product that allows running RF scans, it makes sense to use that data instead of iw scans.
-* ``-b`` / ``--bssid`` allows you to specify a single desired BSSID for your survey. This will be checked (iw config) at the beginning and end of every measurement, and the measurement will fail if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
+* ``-b`` / ``--bssid`` allows you to specify a single desired BSSID for your survey. This will be checked several times during of every measurement, and the measurement will be discarded if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
+* ``-d`` / ``--duration`` allows you to change the duration of each individual `iperf3` test run (default is 10 seconds as mentioned above)
 
 When the UI loads, you should see your PNG file displayed. The UI is really simple:
 
@@ -103,18 +117,22 @@ Once you've performed a survey with a given title and the results are saved in `
 
 You can optionally pass the path to a JSON file mapping the access point MAC addresses (BSSIDs) to friendly names via the ``-a`` / ``--ap-names`` argument. If specified, this will annotate each measurement dot on the heatmap with the name (mapping value) and frequency band of the AP that was connected when the measurement was taken. This can be useful in multi-AP roaming environments.
 
-The end result of this process for a given survey (Title) should be 8 ``.png`` images in your current directory:
+The end result of this process for a given survey (Title) should be some ``.png`` images in your current directory:
 
-* **channels24_TITLE.png** - Bar graph of average signal quality of APs seen on 2.4 GHz channels, by channel. Useful for visualizing channel contention. (Based on 20 MHz channel bandwidth)
-* **channels5_TITLE.png** - Bar graph of average signal quality of APs seen on 5 GHz channels, by channel. Useful for visualizing channel contention. (Based on per-channel bandwidth from 20 to 160 MHz)
-* **jitter_TITLE.png** - Heatmap based on UDP jitter measurement in milliseconds.
-* **quality_TITLE.png** - Heatmap based on iwconfig's "quality" metric.
-* **rssi_TITLE.png** - Heatmap based on iwconfig's signal strength (rssi) metric.
-* **tcp_download_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, downloading from server to client.
-* **tcp_upload_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, TCP, uploading from client to server.
-* **udp_Mbps_TITLE.png** - Heatmap of iperf3 transfer rate, UDP, uploading from client to server.
+* `channels24_TITLE.png` - Bar graph of average signal quality of APs seen on 2.4 GHz channels, by channel. Useful for visualizing channel contention. (Based on 20 MHz channel bandwidth)
+* `channels5_TITLE.png` - Bar graph of average signal quality of APs seen on 5 GHz channels, by channel. Useful for visualizing channel contention. (Based on per-channel bandwidth from 20 to 160 MHz)
+* `jitter_TITLE.png` - Heatmap based on UDP jitter measurement in milliseconds.
+* `rss_TITLE.png` - Heatmap based on the received signal strength.
+* `tcp_download_Mbps_TITLE.png` - Heatmap of `iperf3` transfer rate, TCP, downloading from server to client.
+* `tcp_upload_Mbps_TITLE.png` - Heatmap of `iperf3` transfer rate, TCP, uploading from client to server.
+* `udp_upload_Mbps_TITLE.png` - Heatmap of `iperf3` transfer rate, UDP, uploading from client to server.
+* `frequency_TITLE.png` - Heatmap of used frequency. May reveal zones in which Wi-Fi steering moved the device onto a different band (2.4GHz / 5 GHz co-existance).
+* `channel_rx_bitrate_TITLE.png` - Heatmap of advertised channel bandwidth in RX direction (AP to client)
+* `channel_tx_bitrate_TITLE.png` - Heatmap of advertised channel bandwidth in TX direction (client to AP)
 
 If you'd like to synchronize the colors/thresholds across multiple heatmaps, such as when comparing different AP placements, you can run ``wifi-heatmap-thresholds`` passing it each of the titles / output JSON filenames. This will generate a ``thresholds.json`` file in the current directory, suitable for passing to the ``wifi-heatmap`` ``-t`` / ``--thresholds`` option.
+
+Add `--show-points` to see the measurement points in the generated maps. Typically, they aren't important when you have a sufficiently dense grid of points so they are hidden by default.
 
 Running In Docker
 -----------------

@@ -94,6 +94,8 @@ class SurveyPoint(object):
         self.y = y
         self.is_finished = False
         self.is_failed = False
+        self.progress = 0
+        self.dotSize = 20
         self.result = {}
 
     def set_result(self, res):
@@ -110,26 +112,45 @@ class SurveyPoint(object):
 
     def set_is_failed(self):
         self.is_failed = True
+        self.progress = 0
+
+    def set_progress(self, value, total):
+        self.progress = int(100*value/total)
 
     def set_is_finished(self):
         self.is_finished = True
+        self.progress = 100
 
     def draw(self, dc, color=None):
         if color is None:
             color = 'green'
             if not self.is_finished:
-                color = 'yellow'
+                color = 'orange'
             if self.is_failed:
                 color = 'red'
         dc.SetPen(wx.Pen(color, style=wx.TRANSPARENT))
         dc.SetBrush(wx.Brush(color, wx.SOLID))
-        dc.DrawCircle(self.x, self.y, 20)
+
+        # Relative scaling
+        x = self.x / self.parent.scale_x
+        y = self.y / self.parent.scale_y
+
+        # Draw circle
+        dc.DrawCircle(x, y, self.dotSize)
+
+        # Put progress label on top of the circle
+        dc.DrawLabel("{}%".format(self.progress), wx.Rect(
+            x-self.dotSize/2, y-self.dotSize/2,
+            self.dotSize, self.dotSize), wx.ALIGN_CENTER)
 
     def erase(self, dc):
         """quicker than redrawing, since DC doesn't have persistence"""
         dc.SetPen(wx.Pen('white', style=wx.TRANSPARENT))
         dc.SetBrush(wx.Brush('white', wx.SOLID))
-        dc.DrawCircle(self.x, self.y, 22)
+        # Relative scaling
+        x = self.x / self.parent.scale_x
+        y = self.y / self.parent.scale_y
+        dc.DrawCircle(x, y, 1.1*self.dotSize)
 
     def includes_point(self, x, y):
         if (
@@ -164,10 +185,14 @@ class FloorplanPanel(wx.Panel):
         self._moving_point = None
         self._moving_x = None
         self._moving_y = None
+        self.scale_x = 1.0
+        self.scale_y = 1.0
         self.data_filename = '%s.json' % self.parent.survey_title
         if os.path.exists(self.data_filename):
             self._load_file(self.data_filename)
-        self.collector = Collector(self.parent.interface, self.parent.server)
+        self._duration = self.parent.duration
+        self.collector = Collector(
+            self.parent.interface, self.parent.server, self._duration)
         self.parent.SetStatusText("Ready.")
 
     def _load_file(self, fpath):
@@ -188,11 +213,36 @@ class FloorplanPanel(wx.Panel):
             rect = self.GetUpdateRegion().GetBox()
             dc.SetClippingRect(rect)
         dc.Clear()
+
+        # Get window size
+        W, H = self.GetSize()
+
+        # Load floorplan
         bmp = wx.Bitmap(self.img_path)
-        dc.DrawBitmap(bmp, 0, 0)
+        image = wx.Bitmap.ConvertToImage(bmp)
+
+        # Store scaling factors for pixel corrections
+        self.scale_x = image.GetWidth() / W
+        self.scale_y = image.GetHeight() / H
+
+        # Scale image to window size
+        logger.debug("Scaling image to {} x {}".format(W, H))
+        image = image.Scale(W, H, wx.IMAGE_QUALITY_HIGH)
+
+        # Draw image
+        scaled_bmp = wx.Bitmap(image)
+        dc.DrawBitmap(scaled_bmp, 0, 0)
+
+    # Get X and Y coordinated scaled to ABSOLUTE coordinates of the floorplan
+    def get_xy(self, event):
+        X, Y = event.GetPosition()
+        W, H = self.GetSize()
+        x = int(X * self.scale_x)
+        y = int(Y * self.scale_y)
+        return [x, y]
 
     def onRightClick(self, event):
-        x, y = event.GetPosition()
+        x, y = self.get_xy(event)
         point = None
         for p in self.survey_points:
             # important to iterate the whole list, so we find the most recent
@@ -217,7 +267,7 @@ class FloorplanPanel(wx.Panel):
         self._write_json()
 
     def onLeftDown(self, event):
-        x, y = event.GetPosition()
+        x, y = self.get_xy(event)
         point = None
         for p in self.survey_points:
             # important to iterate the whole list, so we find the most recent
@@ -235,10 +285,10 @@ class FloorplanPanel(wx.Panel):
         point.draw(wx.ClientDC(self), color='blue')
 
     def onLeftUp(self, event):
+        x, y = pos = self.get_xy(event)
         if self._moving_point is None:
-            self._do_measurement(event.GetPosition())
+            self._do_measurement(pos)
             return
-        x, y = event.GetPosition()
         oldx = self._moving_point.x
         oldy = self._moving_point.y
         self._moving_point.x = x
@@ -259,21 +309,26 @@ class FloorplanPanel(wx.Panel):
     def onMotion(self, event):
         if self._moving_point is None:
             return
-        x, y = event.GetPosition()
+        x, y = pos = self.get_xy(event)
         dc = wx.ClientDC(self)
         self._moving_point.erase(dc)
         self._moving_point.x = x
         self._moving_point.y = y
         self._moving_point.draw(dc, color='red')
 
-    def _check_bssid(self, data):
+    def _check_bssid(self):
+        # Return early if BSSID is not to be verified
         if self.parent.bssid is None:
             return True
-        bssid = data['Access Point'].decode().lower()
+        # Get BSSID from link
+        data = self.collector.scanner.get_iface_data(update=True)
+        bssid = data['bssid']
+        # Compare BSSID, exit early on match
         if bssid == self.parent.bssid:
             return True
+        # Error logging
         msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
-              f'BSSID {iwc["Access Point"]}'
+              f'BSSID {bssid}'
         self.parent.SetStatusText(msg)
         self.Refresh()
         self.warn(msg)
@@ -285,37 +340,64 @@ class FloorplanPanel(wx.Panel):
         self.Refresh()
         res = {}
         count = 0
-        iwc = self.collector.run_iwconfig()
-        if not self._check_bssid(iwc):
+        # Number of steps in total (for the progress computation)
+        steps = 5
+        # Check if we are connected to an AP, all the
+        # rest doesn't any sense otherwise
+        if not self.collector.check_associated():
             return
-        for protoname, udp in {'tcp': False, 'udp': True}.items():
-            for suffix, reverse in {'': False, '-reverse': True}.items():
-                if udp and reverse:
-                    logger.warning('Skipping reverse UDP; always fails')
-                    continue
-                count += 1
-                tmp = self.run_iperf(count, udp, reverse)
-                if tmp is None:
-                    # bail out; abort this survey point
-                    del self.survey_points[-1]
-                    self.parent.SetStatusText('Aborted; ready to retry...')
-                    self.Refresh()
-                    return
-                # else success
-                res['%s%s' % (protoname, suffix)] = {
-                    x: getattr(tmp, x, None) for x in RESULT_FIELDS
-                }
-        self.parent.SetStatusText('Running iwconfig...')
-        self.Refresh()
-        res['iwconfig'] = self.collector.run_iwconfig()
-        if not self._check_bssid(res['iwconfig']):
+        # Check BSSID
+        if not self._check_bssid():
+            return
+
+        # Skip iperf test if empty server string was given
+        if len(self.collector._iperf_server) > 0:
+            for protoname, udp in {'tcp': False, 'udp': True}.items():
+                for suffix, reverse in {'': False, '-reverse': True}.items():
+                    # Update progress mark
+                    self.survey_points[-1].set_progress(count, steps)
+                    count += 1
+
+                    # Check if we're still connected to the same AP
+                    if not self._check_bssid():
+                        return
+
+                    # Start iperf test
+                    tmp = self.run_iperf(count, udp, reverse)
+                    if tmp is None:
+                        # bail out; abort this survey point
+                        del self.survey_points[-1]
+                        self.parent.SetStatusText('Aborted; ready to retry...')
+                        self.Refresh()
+                        return
+                    # else success
+                    res['%s%s' % (protoname, suffix)] = {
+                        x: getattr(tmp, x, None) for x in RESULT_FIELDS
+                    }
+
+        # Check if we're still connected to the same AP
+        if not self._check_bssid():
             del self.survey_points[-1]
             return
+
+        # Get all signal metrics from nl
+        self.parent.SetStatusText(
+            'Getting signal metrics (Quality, signal strength, etc.)...')
         self.Refresh()
+        data = self.collector.scanner.get_iface_data()
+        # Merge dicts
+        res = {**res, **data}
+        self.survey_points[-1].set_progress(4, steps)
+
+        # Scan APs in the neighborhood
         if self.parent.scan:
-            self.parent.SetStatusText('Running iwscan...')
+            self.parent.SetStatusText(
+                'Scanning all access points within reach...')
             self.Refresh()
-            res['iwscan'] = self.collector.run_iwscan()
+            res['scan_results'] = self.collector.scan_all_access_points()
+        self.survey_points[-1].set_progress(5, steps)
+
+        # Save results and mark survey point as complete
         self.survey_points[-1].set_result(res)
         self.survey_points[-1].set_is_finished()
         self.parent.SetStatusText(
@@ -333,7 +415,7 @@ class FloorplanPanel(wx.Panel):
     def _write_json(self):
         res = json.dumps(
             [x.as_dict for x in self.survey_points],
-            cls=SafeEncoder
+            cls=SafeEncoder, indent=2
         )
         with open(self.data_filename, 'w') as fh:
             fh.write(res)
@@ -356,8 +438,14 @@ class FloorplanPanel(wx.Panel):
         return result
 
     def run_iperf(self, count, udp, reverse):
+        proto = "UDP" if udp else "TCP"
+        # iperf3 default direction is uploading to the server
+        direction = "Download" if reverse else "Upload"
         self.parent.SetStatusText(
-            'Running iperf %d/3 (udp=%s, reverse=%s)' % (count, udp, reverse)
+            'Running iperf %d/4: %s (%s) - takes %i seconds' % (count,
+                                                                direction,
+                                                                proto,
+                                                                self._duration)
         )
         self.Refresh()
         tmp = self.collector.run_iperf(udp, reverse)
@@ -385,7 +473,7 @@ class MainFrame(wx.Frame):
 
     def __init__(
             self, img_path, interface, server, survey_title, scan, bssid, ding,
-            ding_command, *args, **kw
+            ding_command, duration, *args, **kw
     ):
         super(MainFrame, self).__init__(*args, **kw)
         self.img_path = img_path
@@ -398,6 +486,7 @@ class MainFrame(wx.Frame):
             self.bssid = self.bssid.lower()
         self.ding_path = ding
         self.ding_command = ding_command
+        self.duration = duration
         self.CreateStatusBar()
         self.pnl = FloorplanPanel(self)
         self.makeMenuBar()
@@ -427,7 +516,7 @@ def parse_args(argv):
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('-S', '--no-scan', dest='scan', action='store_false',
-                   default=True, help='skip iwlist scan')
+                   default=True, help='skip access point scan')
     p.add_argument('-b', '--bssid', dest='bssid', action='store', type=str,
                    default=None, help='Restrict survey to this BSSID')
     p.add_argument('--ding', dest='ding', action='store', type=str,
@@ -436,6 +525,9 @@ def parse_args(argv):
     p.add_argument('--ding-command', dest='ding_command', action='store',
                    type=str, default='/usr/bin/paplay',
                    help='Path to ding command')
+    p.add_argument('-d', '--duration', dest='duration', action='store',
+                   type=int, default=10,
+                   help='Duration of each individual ipref test run')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
     p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
     p.add_argument('IMAGE', type=str, help='Path to background image')
@@ -476,6 +568,11 @@ def set_log_level_format(level, format):
 
 
 def main():
+    if os.getuid() != 0:
+        logger.warning("You should run this script as root"
+                       " to be able to trigger Wi-Fi scans.")
+
+    # Parse input arguments
     args = parse_args(sys.argv[1:])
 
     # set logging level
@@ -487,7 +584,7 @@ def main():
     app = wx.App()
     frm = MainFrame(
         args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE, args.scan,
-        args.bssid, args.ding, args.ding_command, None,
+        args.bssid, args.ding, args.ding_command, args.duration, None,
         title='wifi-survey: %s' % args.TITLE,
     )
     frm.Show()

@@ -38,11 +38,12 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import logging
 from time import sleep
 
-from wifi_survey_heatmap.nl_scan import Scanner
+from wifi_survey_heatmap.libnl import Scanner
 
 import iperf3
 
 logger = logging.getLogger(__name__)
+
 
 class Collector(object):
 
@@ -79,21 +80,6 @@ class Collector(object):
         logger.debug('iperf result: %s', res)
         return res
 
-    def _run_all_iperf(self):
-        res = {'tcp': {}, 'udp': {}}
-        for proto_name, udp in {'tcp': False, 'udp': True}.items():
-            for dest_name, reverse in {
-                'client_to_server': False,
-                'server_to_client': True
-            }.items():
-                tmp = self.run_iperf(udp, reverse)
-                if 'end' in tmp.json:
-                    tmp = tmp.json['end']
-                res[proto_name][dest_name] = tmp
-                logger.debug('Sleeping 2s before next iperf run')
-                sleep(2)
-        return res
-
     def check_associated(self):
         logger.debug('Checking association with AP...')
         data = self.scanner.get_iface_data(update=True)
@@ -103,7 +89,7 @@ class Collector(object):
         else:
             logger.debug("OK")
             return True
-    
+
     def get_metrics(self):
         return self.scanner.get_iface_data()
 

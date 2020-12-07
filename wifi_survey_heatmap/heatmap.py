@@ -253,9 +253,11 @@ class HeatMapGenerator(object):
         channels = defaultdict(list)
         for row in self._data:
             for scan in row['result']['scan_results']:
-                if row['result']['scan_results'][scan]['ssid'] in self._ignore_ssids:
+                ssid = row['result']['scan_results'][scan]['ssid']
+                if ssid in self._ignore_ssids:
                     continue
-                channels[row['result']['scan_results'][scan]['frequency'] / 1000000].append(
+                freq = row['result']['scan_results'][scan]['frequency'] / 1e6
+                channels[int(freq)].append(
                     row['result']['scan_results'][scan]['signal_mbm'] + 100
                 )
         # collapse down to dict of frequency (GHz) to average quality (float)
@@ -381,8 +383,6 @@ class HeatMapGenerator(object):
         )
         cbar = pp.colorbar(image)
         # Print only one ytick label when there is only one value to be shown
-        print(dir(cbar))
-        print(dir(cbar.ax))
         if vmin == vmax:
             cbar.set_ticks([vmin])
         pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
@@ -442,7 +442,6 @@ def parse_args(argv):
     return args
 
 
-
 def set_log_info():
     """set logger level to INFO"""
     set_log_level_format(logging.INFO,
@@ -484,8 +483,8 @@ def main():
     showpoints = True if args.showpoints > 0 else False
 
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, showpoints, args.cname, ignore_ssids=args.ignore,
-        aps=args.aps, thresholds=args.thresholds
+        args.IMAGE, args.TITLE, showpoints, args.cname,
+        ignore_ssids=args.ignore, aps=args.aps, thresholds=args.thresholds
     ).generate()
 
 

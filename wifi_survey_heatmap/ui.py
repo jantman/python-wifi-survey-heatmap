@@ -311,28 +311,31 @@ class FloorplanPanel(wx.Panel):
         # Check BSSID
         if not self._check_bssid():
             return
-        for protoname, udp in {'tcp': False, 'udp': True}.items():
-            for suffix, reverse in {'': False, '-reverse': True}.items():
-                # Update progress mark
-                self.survey_points[-1].set_progress(count, steps)
-                count += 1
 
-                # Check if we're still connected to the same AP
-                if not self._check_bssid():
-                    return
+        # Skip iperf test if empty server string was given
+        if len(self.collector._iperf_server) > 0:
+            for protoname, udp in {'tcp': False, 'udp': True}.items():
+                for suffix, reverse in {'': False, '-reverse': True}.items():
+                    # Update progress mark
+                    self.survey_points[-1].set_progress(count, steps)
+                    count += 1
 
-                # Start iperf test
-                tmp = self.run_iperf(count, udp, reverse)
-                if tmp is None:
-                    # bail out; abort this survey point
-                    del self.survey_points[-1]
-                    self.parent.SetStatusText('Aborted; ready to retry...')
-                    self.Refresh()
-                    return
-                # else success
-                res['%s%s' % (protoname, suffix)] = {
-                    x: getattr(tmp, x, None) for x in RESULT_FIELDS
-                }
+                    # Check if we're still connected to the same AP
+                    if not self._check_bssid():
+                        return
+
+                    # Start iperf test
+                    tmp = self.run_iperf(count, udp, reverse)
+                    if tmp is None:
+                        # bail out; abort this survey point
+                        del self.survey_points[-1]
+                        self.parent.SetStatusText('Aborted; ready to retry...')
+                        self.Refresh()
+                        return
+                    # else success
+                    res['%s%s' % (protoname, suffix)] = {
+                        x: getattr(tmp, x, None) for x in RESULT_FIELDS
+                    }
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
@@ -340,7 +343,8 @@ class FloorplanPanel(wx.Panel):
             return
 
         # Get all signal metrics from nl
-        self.parent.SetStatusText('Getting signal metrics (Quality, signal strength, etc.)...')
+        self.parent.SetStatusText(
+            'Getting signal metrics (Quality, signal strength, etc.)...')
         self.Refresh()
         data = self.collector.scanner.get_iface_data()
         # Merge dicts
@@ -349,7 +353,8 @@ class FloorplanPanel(wx.Panel):
 
         # Scan APs in the neighborhood
         if self.parent.scan:
-            self.parent.SetStatusText('Scanning all access points within reach...')
+            self.parent.SetStatusText(
+                'Scanning all access points within reach...')
             self.Refresh()
             res['scan_results'] = self.collector.scan_all_access_points()
         self.survey_points[-1].set_progress(5, steps)

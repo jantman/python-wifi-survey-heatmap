@@ -239,10 +239,7 @@ class HeatMapGenerator(object):
                 row['result']['ssid'].upper(),
                 row['result']['ssid']
             )
-            if row['result']['frequency'] < 5000:
-                a['ap'].append(ap + '_2.4GHz')
-            else:
-                a['ap'].append(ap + '_5GHz')
+            a['ap'].append(ap + ' ({0:.1f} GHz)'.format(1e-3*int(row['result']['frequency'])))
         return a
 
     def _load_image(self):
@@ -425,15 +422,20 @@ class HeatMapGenerator(object):
             alpha=0.5, zorder=100,
             cmap=self._cmap, vmin=vmin, vmax=vmax
         )
-        if self._contours is not None:
+
+        # Draw contours if requested and meaningful in this plot
+        if self._contours is not None and vmin != vmax:
             CS = ax.contour(z, colors='k', linewidths=1, levels=self._contours,
                             extent=(0, self._image_width, self._image_height, 0),
                             alpha=0.3, zorder=150, origin='upper')
             ax.clabel(CS, inline=1, fontsize=6)
         cbar = fig.colorbar(image)
+
         # Print only one ytick label when there is only one value to be shown
         if vmin == vmax:
             cbar.set_ticks([vmin])
+
+        # Draw floorplan itself to the lowest layer with full opacity
         ax.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
         labelsize = FontManager.get_default_size() * 0.4
         if(self._showpoints):
@@ -442,7 +444,7 @@ class HeatMapGenerator(object):
                 if (a['x'][idx], a['y'][idx]) in self._corners:
                     continue
                 ax.plot(
-                    a['x'][idx], a['y'][idx],
+                    a['x'][idx], a['y'][idx], zorder=200,
                     marker='o', markeredgecolor='black', markeredgewidth=1,
                     markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
                 )

@@ -119,6 +119,7 @@ class SurveyPoint(object):
 
     def set_is_finished(self):
         self.is_finished = True
+        self.is_failed = False
         self.progress = 100
 
     def draw(self, dc, color=None):
@@ -334,9 +335,17 @@ class FloorplanPanel(wx.Panel):
         self.warn(msg)
         return False
 
+    def _abort(self, reason):
+        self.survey_points[-1].set_is_failed()
+        self.parent.SetStatusText('Aborted: {}'.format(reason))
+        self.Refresh()
+
     def _do_measurement(self, pos):
-        self.parent.SetStatusText('Got click at: %s' % pos)
+        self.parent.SetStatusText('Starting survey...')
+        # Add new survey point
         self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
+        # Delete failed survey points
+        self.survey_points = [p for p in self.survey_points if not p.is_failed]
         self.Refresh()
         res = {}
         count = 0
@@ -345,9 +354,11 @@ class FloorplanPanel(wx.Panel):
         # Check if we are connected to an AP, all the
         # rest doesn't any sense otherwise
         if not self.collector.check_associated():
+            self._abort("Not connected to an access point")
             return
         # Check BSSID
         if not self._check_bssid():
+            self._abort("BSSID check failed")
             return
 
         # Skip iperf test if empty server string was given
@@ -360,15 +371,14 @@ class FloorplanPanel(wx.Panel):
 
                     # Check if we're still connected to the same AP
                     if not self._check_bssid():
+                        self._abort("BSSID check failed")
                         return
 
                     # Start iperf test
                     tmp = self.run_iperf(count, udp, reverse)
                     if tmp is None:
                         # bail out; abort this survey point
-                        del self.survey_points[-1]
-                        self.parent.SetStatusText('Aborted; ready to retry...')
-                        self.Refresh()
+                        self._abort("iperf test failed")
                         return
                     # else success
                     res['%s%s' % (protoname, suffix)] = {
@@ -377,7 +387,7 @@ class FloorplanPanel(wx.Panel):
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
-            del self.survey_points[-1]
+            self._abort("BSSID check failed")
             return
 
         # Get all signal metrics from nl

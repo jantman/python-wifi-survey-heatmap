@@ -136,10 +136,11 @@ class HeatMapGenerator(object):
         'udp_download_Mbps': 'Download (UDP) [MBit/s]',
         'tcp_upload_Mbps': 'Upload (TCP) [MBit/s]',
         'udp_upload_Mbps': 'Upload (UDP) [MBit/s]',
-        'jitter': 'UDP Jitter [ms]',
+        'jitter_download': 'UDP Download Jitter [ms]',
+        'jitter_upload': 'UDP Upload Jitter [ms]',
+        'frequency': 'Wi-Fi frequency [GHz]',
         'channel': 'Wi-Fi channel',
         'channel_bitrate': 'Maximum channel bandwidth [MBit/s]',
-
     }
 
     def __init__(
@@ -183,18 +184,24 @@ class HeatMapGenerator(object):
             a['x'].append(row['x'])
             a['y'].append(row['y'])
             a['channel'].append(row['result']['channel'])
-            a['tcp_upload_Mbps'].append(
-                row['result']['tcp']['received_Mbps']
-            )
-            a['tcp_download_Mbps'].append(
-                row['result']['tcp-reverse']['received_Mbps']
-            )
-            a['udp_download_Mbps'].append(row['result']['udp']['Mbps'])
-            a['udp_upload_Mbps'].append(row['result']['udp-reverse']['Mbps'])
-            a['jitter'].append(row['result']['udp']['jitter_ms'])
+            if 'tcp' in row['result']:
+                a['tcp_upload_Mbps'].append(
+                    row['result']['tcp']['received_Mbps']
+                )
+            if 'tcp-reverse' in row['result']:
+                a['tcp_download_Mbps'].append(
+                    row['result']['tcp-reverse']['received_Mbps']
+                )
+            if 'udp' in row['result']:
+                a['udp_download_Mbps'].append(row['result']['udp']['Mbps'])
+                a['jitter_download'].append(row['result']['udp']['jitter_ms'])
+            if 'udp-reverse' in row['result']:
+                a['udp_upload_Mbps'].append(row['result']['udp-reverse']['Mbps'])
+                a['jitter_upload'].append(row['result']['udp-reverse']['jitter_ms'])
             a['tx_power'].append(row['result']['tx_power'])
-            a['frequency'].append(row['result']['frequency'])
-            a['channel_bitrate'].append(row['result']['bitrate'])
+            a['frequency'].append(row['result']['frequency']*1e-3)
+            if 'bitrate' in row['result']:
+                a['channel_bitrate'].append(row['result']['bitrate'])
             a['signal_quality'].append(row['result']['signal_mbm']+130)
             ap = self._ap_names.get(
                 row['result']['ssid'].upper(),
@@ -338,6 +345,9 @@ class HeatMapGenerator(object):
         return at
 
     def _plot(self, a, key, title, gx, gy, num_x, num_y):
+        if key not in a:
+            logger.info("Skipping {} due to insufficient data".format(key))
+            return
         logger.debug('Plotting: %s', key)
         pp.rcParams['figure.figsize'] = (
             self._image_width / 300, self._image_height / 300

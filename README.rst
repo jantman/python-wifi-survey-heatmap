@@ -112,7 +112,7 @@ Inside Docker, however, this becomes quite a bit more difficult. Currently Pulse
 Heatmap Generation
 ++++++++++++++++++
 
-Once you've performed a survey with a given title and the results are saved in ``Title.json``, run ``wifi-heatmap PNG Title`` to generate heatmap files in the current directory. This process does not require (and shouldn't have) root/sudo and operates only on the JSON data file. For this, it will look better if you use a PNG without the measurement location marks.
+Once you've performed a survey with a given title and the results are saved in ``Title.json``, run ``wifi-heatmap TITLE`` to generate heatmap files in the current directory. This process does not require (and shouldn't have) root/sudo and operates only on the JSON data file. For this, it will look better if you use a PNG without the measurement location marks.
 
 You can optionally pass the path to a JSON file mapping the access point MAC addresses (BSSIDs) to friendly names via the ``-a`` / ``--ap-names`` argument. If specified, this will annotate each measurement dot on the heatmap with the name (mapping value) and frequency band of the AP that was connected when the measurement was taken. This can be useful in multi-AP roaming environments.
 
@@ -161,7 +161,7 @@ Note that running with ``--net="host"`` and ``--privileged`` is required in orde
 Heatmap
 +++++++
 
-``docker run -it --rm -v $(pwd):/pwd -w /pwd jantman/python-wifi-survey-heatmap:23429a4 wifi-heatmap floorplan.png DeckTest``
+``docker run -it --rm -v $(pwd):/pwd -w /pwd jantman/python-wifi-survey-heatmap:23429a4 wifi-heatmap Example``
 
 iperf3 server
 +++++++++++++

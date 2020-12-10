@@ -201,7 +201,10 @@ class FloorplanPanel(wx.Panel):
         with open(fpath, 'r') as fh:
             raw = fh.read()
         data = json.loads(raw)
-        for point in data:
+        if 'survey_points' not in data:
+            logger.error('Trying to load incompatible JSON file')
+            exit(1)
+        for point in data['survey_points']:
             p = SurveyPoint(self, point['x'], point['y'])
             p.set_result(point['result'])
             p.set_is_finished()
@@ -424,8 +427,11 @@ class FloorplanPanel(wx.Panel):
         subprocess.call([self.parent.ding_command, self.parent.ding_path])
 
     def _write_json(self):
+        # Only store finished survey points
+        survey_points = [p.as_dict for p in self.survey_points if p.is_finished]
+
         res = json.dumps(
-            [x.as_dict for x in self.survey_points],
+            {'img_path': self.img_path, 'survey_points': survey_points},
             cls=SafeEncoder, indent=2
         )
         with open(self.data_filename, 'w') as fh:

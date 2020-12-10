@@ -153,7 +153,6 @@ class HeatMapGenerator(object):
                 self._ap_names = {
                     x.upper(): y for x, y in json.loads(fh.read()).items()
                 }
-        self._image_path = image_path
         self._layout = None
         self._image_width = 0
         self._image_height = 0
@@ -165,12 +164,24 @@ class HeatMapGenerator(object):
             self._title += '.json'
         self._ignore_ssids = ignore_ssids
         logger.debug(
-            'Initialized HeatMapGenerator; image_path=%s title=%s',
-            self._image_path, self._title
+            'Initialized HeatMapGenerator; title=%s',
+            self._title
         )
         with open(self._title, 'r') as fh:
             self._data = json.loads(fh.read())
-        logger.info('Loaded %d measurement points', len(self._data))
+        if 'survey_points' not in self._data:
+            logger.error('No survey points found in {}'.format(self._title))
+            exit()
+        logger.info('Loaded %d survey points',
+                    len(self._data['survey_points']))
+
+        # Try to load image from JSON if not overwritten
+        if image_path is None:
+            if 'img_path' not in self._data:
+                logger.error('No image path found in {}'.format(self._title))
+                exit(1)
+            self._image_path = self._data['img_path']
+
         self.thresholds = {}
         if thresholds is not None:
             logger.info('Loading thresholds from: %s', thresholds)
@@ -180,7 +191,7 @@ class HeatMapGenerator(object):
 
     def load_data(self):
         a = defaultdict(list)
-        for row in self._data:
+        for row in self._data['survey_points']:
             a['x'].append(row['x'])
             a['y'].append(row['y'])
             a['channel'].append(row['result']['channel'])
@@ -196,8 +207,10 @@ class HeatMapGenerator(object):
                 a['udp_download_Mbps'].append(row['result']['udp']['Mbps'])
                 a['jitter_download'].append(row['result']['udp']['jitter_ms'])
             if 'udp-reverse' in row['result']:
-                a['udp_upload_Mbps'].append(row['result']['udp-reverse']['Mbps'])
-                a['jitter_upload'].append(row['result']['udp-reverse']['jitter_ms'])
+                a['udp_upload_Mbps'].append(
+                    row['result']['udp-reverse']['Mbps'])
+                a['jitter_upload'].append(
+                    row['result']['udp-reverse']['jitter_ms'])
             a['tx_power'].append(row['result']['tx_power'])
             a['frequency'].append(row['result']['frequency']*1e-3)
             if 'bitrate' in row['result']:
@@ -258,7 +271,7 @@ class HeatMapGenerator(object):
         """
         # build a dict of frequency (GHz) to list of quality values
         channels = defaultdict(list)
-        for row in self._data:
+        for row in self._data['survey_points']:
             for scan in row['result']['scan_results']:
                 ssid = row['result']['scan_results'][scan]['ssid']
                 if ssid in self._ignore_ssids:
@@ -347,6 +360,9 @@ class HeatMapGenerator(object):
     def _plot(self, a, key, title, gx, gy, num_x, num_y):
         if key not in a:
             logger.info("Skipping {} due to insufficient data".format(key))
+            return
+        if not len(a['x']) == len(a['y']) == len(a[key]):
+            logger.info("Skipping {} because data has holes".format(key))
             return
         logger.debug('Plotting: %s', key)
         pp.rcParams['figure.figsize'] = (
@@ -442,7 +458,8 @@ def parse_args(argv):
     p.add_argument('-c', '--cmap-name', type=str, dest='cname', action='store',
                    default="RdYlBu_r",
                    help='If specified, a valid matplotlib colormap name.')
-    p.add_argument('IMAGE', type=str, help='Path to background image')
+    p.add_argument('-p', '--picture', dest='IMAGE', type=str, action='store',
+                   default=None, help='Path to background image')
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
     )

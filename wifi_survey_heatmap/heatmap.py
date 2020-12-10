@@ -51,6 +51,7 @@ from pylab import imread, imshow
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
 from matplotlib.font_manager import FontManager
+from matplotlib.colors import ListedColormap
 import matplotlib
 
 
@@ -144,7 +145,7 @@ class HeatMapGenerator(object):
     }
 
     def __init__(
-        self, image_path, title, showpoints, cname, ignore_ssids=[], aps=None,
+        self, image_path, title, showpoints, cname, contours, ignore_ssids=[], aps=None,
         thresholds=None
     ):
         self._ap_names = {}
@@ -159,7 +160,8 @@ class HeatMapGenerator(object):
         self._corners = [(0, 0), (0, 0), (0, 0), (0, 0)]
         self._title = title
         self._showpoints = showpoints
-        self._cname = cname
+        self._cmap = self.get_cmap(cname)
+        self._contours = contours
         if not self._title.endswith('.json'):
             self._title += '.json'
         self._ignore_ssids = ignore_ssids
@@ -188,6 +190,23 @@ class HeatMapGenerator(object):
             with open(thresholds, 'r') as fh:
                 self.thresholds = json.loads(fh.read())
             logger.debug('Thresholds: %s', self.thresholds)
+
+    def get_cmap(self, cname):
+        multi_string = cname.split('//')
+        if len(multi_string) == 2:
+            cname = multi_string[0]
+            steps = int(multi_string[1])
+            N = 256
+            colormap = cm.get_cmap(cname, N)
+            newcolors = colormap(np.linspace(0, 1, N))
+            rgba = np.array([0, 0, 0, 1])
+            interval = int(N/steps) if steps > 0 else 0
+            for i in range(0,N,interval):
+                newcolors[i] = rgba
+            print(newcolors)
+            return ListedColormap(newcolors)
+        else:
+            return pp.get_cmap(cname)
 
     def load_data(self):
         a = defaultdict(list)
@@ -368,7 +387,8 @@ class HeatMapGenerator(object):
         pp.rcParams['figure.figsize'] = (
             self._image_width / 300, self._image_height / 300
         )
-        pp.title(title)
+        fig, ax = pp.subplots()
+        ax.set_title(title)
         if 'min' in self.thresholds.get(key, {}):
             vmin = self.thresholds[key]['min']
             logger.debug('Using min threshold from thresholds: %s', vmin)
@@ -394,36 +414,39 @@ class HeatMapGenerator(object):
             # (avoids interpolation artifacts)
             z = numpy.ones((num_y, num_x))*vmin
         # Render the interpolated data to the plot
-        pp.axis('off')
+        ax.axis('off')
         # begin color mapping
-
-        cmap = pp.get_cmap(self._cname)
         norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
-        mapper = cm.ScalarMappable(norm=norm, cmap=cmap)
+        mapper = cm.ScalarMappable(norm=norm, cmap=self._cmap)
         # end color mapping
-        image = pp.imshow(
+        image = ax.imshow(
             z,
             extent=(0, self._image_width, self._image_height, 0),
             alpha=0.5, zorder=100,
-            cmap=cmap, vmin=vmin, vmax=vmax
+            cmap=self._cmap, vmin=vmin, vmax=vmax
         )
-        cbar = pp.colorbar(image)
+        if self._contours is not None:
+            CS = ax.contour(z, colors='k', linewidths=1, levels=self._contours,
+                            extent=(0, self._image_width, self._image_height, 0),
+                            alpha=0.3, zorder=150, origin='upper')
+            ax.clabel(CS, inline=1, fontsize=6)
+        cbar = fig.colorbar(image)
         # Print only one ytick label when there is only one value to be shown
         if vmin == vmax:
             cbar.set_ticks([vmin])
-        pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
+        ax.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
         labelsize = FontManager.get_default_size() * 0.4
         if(self._showpoints):
             # begin plotting points
             for idx in range(0, len(a['x'])):
                 if (a['x'][idx], a['y'][idx]) in self._corners:
                     continue
-                pp.plot(
+                ax.plot(
                     a['x'][idx], a['y'][idx],
                     marker='o', markeredgecolor='black', markeredgewidth=1,
                     markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
                 )
-                pp.text(
+                ax.text(
                     a['x'][idx], a['y'][idx] - 30,
                     a['ap'][idx], fontsize=labelsize,
                     horizontalalignment='center'
@@ -455,9 +478,12 @@ def parse_args(argv):
                         'a string to label each measurement with, showing '
                         'which AP it was connected to. Useful when doing '
                         'multi-AP surveys.')
-    p.add_argument('-c', '--cmap-name', type=str, dest='cname', action='store',
+    p.add_argument('-c', '--cmap', type=str, dest='CNAME', action='store',
                    default="RdYlBu_r",
                    help='If specified, a valid matplotlib colormap name.')
+    p.add_argument('-n', '--contours', type=int, dest='N', action='store',
+                   default=None,
+                   help='If specified, N contour lines will be added to the graphs')
     p.add_argument('-p', '--picture', dest='IMAGE', type=str, action='store',
                    default=None, help='Path to background image')
     p.add_argument(
@@ -510,7 +536,7 @@ def main():
     showpoints = True if args.showpoints > 0 else False
 
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, showpoints, args.cname,
+        args.IMAGE, args.TITLE, showpoints, args.CNAME, args.N,
         ignore_ssids=args.ignore, aps=args.aps, thresholds=args.thresholds
     ).generate()
 

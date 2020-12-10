@@ -598,7 +598,6 @@ def main():
         title='wifi-survey: %s' % args.TITLE,
     )
     frm.Show()
-    frm.Maximize(True)
     frm.SetStatusText('%s' % frm.pnl.GetSize())
     app.MainLoop()
 

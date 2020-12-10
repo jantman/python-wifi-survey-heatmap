@@ -283,7 +283,7 @@ class FloorplanPanel(wx.Panel):
         self._moving_point = point
         self._moving_x = point.x
         self._moving_y = point.y
-        point.draw(wx.ClientDC(self), color='blue')
+        point.draw(wx.ClientDC(self), color='lightblue')
 
     def onLeftUp(self, event):
         x, y = pos = self.get_xy(event)
@@ -294,9 +294,9 @@ class FloorplanPanel(wx.Panel):
         oldy = self._moving_point.y
         self._moving_point.x = x
         self._moving_point.y = y
-        self._moving_point.draw(wx.ClientDC(self), color='red')
+        self._moving_point.draw(wx.ClientDC(self), color='lightblue')
         res = self.YesNo(
-            f'Move point from blue ({oldx}, {oldy}) to red ({x}, {y})?'
+            f'Move point from ({oldx}, {oldy}) to ({x}, {y})?'
         )
         if not res:
             self._moving_point.x = self._moving_x
@@ -315,7 +315,7 @@ class FloorplanPanel(wx.Panel):
         self._moving_point.erase(dc)
         self._moving_point.x = x
         self._moving_point.y = y
-        self._moving_point.draw(dc, color='red')
+        self._moving_point.draw(dc, color='lightblue')
 
     def _check_bssid(self):
         # Return early if BSSID is not to be verified

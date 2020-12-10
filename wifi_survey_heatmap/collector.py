@@ -47,19 +47,17 @@ logger = logging.getLogger(__name__)
 
 class Collector(object):
 
-    def __init__(self, interface_name, server_addr, duration, scan=True):
+    def __init__(self, server_addr, duration, scanner, scan=True):
         super().__init__()
         logger.debug(
             'Initializing Collector for interface: %s; iperf server: %s',
-            interface_name, server_addr
+            scanner.interface_name, server_addr
         )
         # ensure interface_name is a wireless interfaces
-        self._interface_name = interface_name
         self._iperf_server = server_addr
         self._scan = scan
         self._duration = duration
-
-        self.scanner = Scanner(interface_name, scan)
+        self.scanner = scanner
 
     def run_iperf(self, udp=False, reverse=False):
         client = iperf3.Client()

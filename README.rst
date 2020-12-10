@@ -68,20 +68,19 @@ Performing a Survey
 
 The survey tool (``wifi-survey``) must be run as root or via ``sudo`` in order to use iwconfig/iwlist.
 
-First connect to the network that you want to survey. Then, run ``sudo wifi-survey INTERFACE PNG Title`` where:
+First connect to the network that you want to survey. Then, run ``sudo wifi-survey`` where:
 
-* ``INTERFACE`` is the name of your Wireless interface (e.g. ``wlp3s0``)
-* ``PNG`` is the path to a floorplan PNG file to use as the background for the map; see `examples/example_floorplan.png <examples/example_floorplan.png>`_ for an example. In order to compare multiple surveys it may be helpful to pre-mark your measurement points on the floorplan, like `examples/example_with_marks.png <examples/example_with_marks.png`_. The UI currently loads the PNG at exact size, so it may help to scale your PNG file to your display.
-* ``Title`` is the title for the survey (such as the network name or AP location), which will also be used to name the data file and output files.
+Command-line options include:
 
-If ``Title.json`` already exists, the data from it will be pre-loaded into the application; this can be used to resume a survey.
-
-Some other command-line options include:
-
-* ``-s`` / ``--server IPERF3_SERVER`` to enable ``iperf3`` scans. The generated speed heatmaps are very useful (much more useful than signal strength) in visualizing the *real* performance of your network as they are live measurements with real data (instead of only theoretical values).
+* ``-i INTERFACE`` / ``--interface INTERFACE`` is the name of your Wireless interface (e.g. ``wlp3s0``)
+* ``-p PICTURE`` / ``--picture PICTURE`` is the path to a floorplan PNG file to use as the background for the map; see `examples/example_floorplan.png <examples/example_floorplan.png>`_ for an example. In order to compare multiple surveys it may be helpful to pre-mark your measurement points on the floorplan, like `examples/example_with_marks.png <examples/example_with_marks.png`_. The UI currently loads the PNG at exact size, so it may help to scale your PNG file to your display.
+* ``-t TITLE`` / ``--title TITLE`` is the title for the survey (such as the network name or AP location), which will also be used to name the data file and output files.
+* ``-s IPERF3_SERVER`` / ``--server IPERF3_SERVER`` to enable ``iperf3`` scans. The generated speed heatmaps are very useful (much more useful than signal strength) in visualizing the *real* performance of your network as they are live measurements with real data (instead of only theoretical values).
 * ``-S`` / ``--scan`` to enable wireless scaning at the end of each measurement. This may take a lot of time, however, generates data used later for generating channel utilization graphs. If you're using a modern wireless product that allows running RF scans, it makes sense to use that data instead of these scans.
-* ``-b`` / ``--bssid BSSID`` allows you to specify a single desired BSSID for your survey. This will be checked several times during of every measurement, and the measurement will be discarded if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
-* ``-d`` / ``--duration`` allows you to change the duration of each individual `iperf3` test run (default is 10 seconds as mentioned above)
+* ``-b BSSID`` / ``--bssid BSSID`` allows you to specify a single desired BSSID for your survey. This will be checked several times during of every measurement, and the measurement will be discarded if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
+* ``-d 123`` / ``--duration 123`` allows you to change the duration of each individual `iperf3` test run (default is 10 seconds as mentioned above)
+
+If ``TITLE.json`` already exists, the data from it will be pre-loaded into the application; this can be used to **resume a survey**.
 
 When the UI loads, you should see your PNG file displayed. The UI is really simple:
 
@@ -155,7 +154,7 @@ Survey
      -e DISPLAY=$DISPLAY \
      -v "$HOME/.Xauthority:/root/.Xauthority:ro" \
      jantman/python-wifi-survey-heatmap \
-     wifi-survey INTERFACE FLOORPLAN.png TITLE
+     wifi-survey
 
 Note that running with ``--net="host"`` and ``--privileged`` is required in order to manipulate the host's wireless interface.
 

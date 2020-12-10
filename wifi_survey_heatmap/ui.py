@@ -44,6 +44,7 @@ import os
 import subprocess
 
 from wifi_survey_heatmap.collector import Collector
+from wifi_survey_heatmap.libnl import Scanner
 
 FORMAT = "[%(asctime)s %(levelname)s] %(message)s"
 logging.basicConfig(level=logging.WARNING, format=FORMAT)
@@ -193,7 +194,7 @@ class FloorplanPanel(wx.Panel):
             self._load_file(self.data_filename)
         self._duration = self.parent.duration
         self.collector = Collector(
-            self.parent.interface, self.parent.server, self._duration)
+            self.parent.server, self._duration, self.parent.scanner)
         self.parent.SetStatusText("Ready.")
 
     def _load_file(self, fpath):
@@ -482,12 +483,11 @@ class FloorplanPanel(wx.Panel):
 class MainFrame(wx.Frame):
 
     def __init__(
-            self, img_path, interface, server, survey_title, scan, bssid, ding,
-            ding_command, duration, *args, **kw
+            self, img_path, server, survey_title, scan, bssid, ding,
+            ding_command, duration, scanner, *args, **kw
     ):
         super(MainFrame, self).__init__(*args, **kw)
         self.img_path = img_path
-        self.interface = interface
         self.server = server
         self.scan = scan
         self.survey_title = survey_title
@@ -498,6 +498,7 @@ class MainFrame(wx.Frame):
         self.ding_command = ding_command
         self.duration = duration
         self.CreateStatusBar()
+        self.scanner = scanner
         self.pnl = FloorplanPanel(self)
         self.makeMenuBar()
 
@@ -540,11 +541,14 @@ def parse_args(argv):
     p.add_argument('--ding-command', dest='ding_command', action='store',
                    type=str, default='/usr/bin/paplay',
                    help='Path to ding command')
-    p.add_argument('INTERFACE', type=str, help='Wireless interface name')
-    p.add_argument('IMAGE', type=str, help='Path to background image')
-    p.add_argument(
-        'TITLE', type=str, help='Title for survey (and data filename)'
-    )
+    p.add_argument('-i', '--interface', dest='INTERFACE', action='store',
+                   type=str, default=None,
+                   help='Wireless interface name')
+    p.add_argument('-p', '--picture', dest='IMAGE', type=str,
+                   default=None, help='Path to background image')
+    p.add_argument('-t', '--title', dest='TITLE', type=str,
+                   default=None, help='Title for survey (and data filename)'
+                   )
     args = p.parse_args(argv)
     return args
 
@@ -578,6 +582,58 @@ def set_log_level_format(level, format):
     logger.setLevel(level)
 
 
+def ask_for_wifi_iface(app, scanner):
+    frame = wx.Frame(None)
+    title = 'Wireless interface'
+    description = 'Please specify the wireless interface\nto be used for your survey'
+    dlg = wx.SingleChoiceDialog(frame, description, title, scanner.iface_names)
+    if dlg.ShowModal() == wx.ID_OK:
+        resu = dlg.GetStringSelection()
+    else:
+        # User clicked [Cancel]
+        exit()
+    dlg.Destroy()
+    frame.Destroy()
+
+    return resu
+
+
+def ask_for_title(app):
+    frame = wx.Frame(None)
+    title = 'Title of your measurement'
+    description = 'Please specify a title for your measurement. This title will be used to store the results and to distinguish the generated plots'
+    default = 'Example'
+    dlg = wx.TextEntryDialog(frame, description, title)
+    dlg.SetValue(default)
+    if dlg.ShowModal() == wx.ID_OK:
+        resu = dlg.GetValue()
+    else:
+        # User clicked [Cancel]
+        exit()
+    dlg.Destroy()
+    frame.Destroy()
+
+    return resu
+
+
+def ask_for_floorplan(app):
+    frame = wx.Frame(None)
+    title = 'Select floorplan for your measurement'
+    dlg = wx.FileDialog(frame, title,
+                        wildcard='Compatible image files (*.png, *.jpg,*.tiff, *.bmp)|*.png;*.jpg;*.tiff;*.bmp;*:PNG;*.JPG;*.TIFF;*.BMP;*.jpeg;*.JPEG',
+                        style=wx.FD_FILE_MUST_EXIST)
+    if dlg.ShowModal() == wx.ID_OK:
+        resu = dlg.GetPath()
+        print(resu)
+    else:
+        # User clicked [Cancel]
+        exit()
+    dlg.Destroy()
+    frame.Destroy()
+
+    return resu
+
+
 def main():
     if os.getuid() != 0:
         logger.warning("You should run this script as root"
@@ -593,10 +649,35 @@ def main():
         set_log_info()
 
     app = wx.App()
+
+    scanner = Scanner(scan=args.scan)
+
+    # Ask for possibly missing fields
+    # Wireless interface
+    if args.INTERFACE is None:
+        INTERFACE = ask_for_wifi_iface(app, scanner)
+    else:
+        INTERFACE = args.INTERFACE
+
+    # Definitely set interface at this point
+    scanner.set_interface(INTERFACE)
+
+   # Floorplan image
+    if args.IMAGE is None:
+        IMAGE = ask_for_floorplan(app)
+    else:
+        IMAGE = args.IMAGE
+
+    # Title
+    if args.TITLE is None:
+        TITLE = ask_for_title(app)
+    else:
+        TITLE = args.TITLE
+
     frm = MainFrame(
-        args.IMAGE, args.INTERFACE, args.IPERF3_SERVER, args.TITLE, args.scan,
-        args.BSSID, args.ding, args.ding_command, args.IPERF3_DURATION, None,
-        title='wifi-survey: %s' % args.TITLE,
+        IMAGE, args.IPERF3_SERVER, TITLE, args.scan,
+        args.BSSID, args.ding, args.ding_command, args.IPERF3_DURATION,
+        scanner, None, title='wifi-survey: %s' % args.TITLE,
     )
     frm.Show()
     frm.SetStatusText('%s' % frm.pnl.GetSize())

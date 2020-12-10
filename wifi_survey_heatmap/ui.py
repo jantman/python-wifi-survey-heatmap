@@ -362,7 +362,7 @@ class FloorplanPanel(wx.Panel):
             return
 
         # Skip iperf test if empty server string was given
-        if len(self.collector._iperf_server) > 0:
+        if self.collector._iperf_server is not None:
             for protoname, udp in {'tcp': False, 'udp': True}.items():
                 for suffix, reverse in {'': False, '-reverse': True}.items():
                     # Update progress mark
@@ -525,9 +525,14 @@ def parse_args(argv):
     p = argparse.ArgumentParser(description='wifi survey data collection UI')
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
-    p.add_argument('-S', '--no-scan', dest='scan', action='store_false',
-                   default=True, help='skip access point scan')
-    p.add_argument('-b', '--bssid', dest='bssid', action='store', type=str,
+    p.add_argument('-S', '--scan', dest='scan', action='store_true',
+                   default=False, help='Scan for access points in the vicinity')
+    p.add_argument('-s', '--server', dest='IPERF3_SERVER', action='store', type=str,
+                   default=None, help='iperf3 server IP or hostname')
+    p.add_argument('-d', '--duration', dest='IPERF3_DURATION', action='store',
+                   type=int, default=10,
+                   help='Duration of each individual ipref3 test run')
+    p.add_argument('-b', '--bssid', dest='BSSID', action='store', type=str,
                    default=None, help='Restrict survey to this BSSID')
     p.add_argument('--ding', dest='ding', action='store', type=str,
                    default=None,
@@ -535,11 +540,7 @@ def parse_args(argv):
     p.add_argument('--ding-command', dest='ding_command', action='store',
                    type=str, default='/usr/bin/paplay',
                    help='Path to ding command')
-    p.add_argument('-d', '--duration', dest='duration', action='store',
-                   type=int, default=10,
-                   help='Duration of each individual ipref test run')
     p.add_argument('INTERFACE', type=str, help='Wireless interface name')
-    p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
     p.add_argument('IMAGE', type=str, help='Path to background image')
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
@@ -593,8 +594,8 @@ def main():
 
     app = wx.App()
     frm = MainFrame(
-        args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE, args.scan,
-        args.bssid, args.ding, args.ding_command, args.duration, None,
+        args.IMAGE, args.INTERFACE, args.IPERF3_SERVER, args.TITLE, args.scan,
+        args.BSSID, args.ding, args.ding_command, args.IPERF3_DURATION, None,
         title='wifi-survey: %s' % args.TITLE,
     )
     frm.Show()

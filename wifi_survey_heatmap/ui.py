@@ -471,7 +471,8 @@ class FloorplanPanel(wx.Panel):
         # else this is an error
         if tmp.error.startswith('unable to connect to server'):
             self.warn(
-                'ERROR: Unable to connect to iperf server. Aborting.'
+                'ERROR: Unable to connect to iperf server at {}. Aborting.'.
+                format(self.collector._iperf_server)
             )
             return None
         if self.YesNo('iperf error: %s. Retry?' % tmp.error):

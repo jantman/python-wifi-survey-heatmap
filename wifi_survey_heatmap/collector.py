@@ -62,11 +62,18 @@ class Collector(object):
     def run_iperf(self, udp=False, reverse=False):
         client = iperf3.Client()
         client.duration = self._duration
-        client.server_hostname = self._iperf_server
-        client.port = 5201
+
+        server_parts = self._iperf_server.split(":")
+        if len(server_parts) == 2:
+            client.server_hostname = server_parts[0]
+            client.port = int(server_parts[1])
+        else:
+            client.server_hostname = self._iperf_server
+            client.port = 5201 # substitute some default port
+
         client.protocol = 'udp' if udp else 'tcp'
         client.reverse = reverse
-        logger.debug(
+        logger.info(
             'Running iperf to %s; udp=%s reverse=%s', self._iperf_server,
             udp, reverse
         )
@@ -74,7 +81,7 @@ class Collector(object):
             res = client.run()
             if res.error is None:
                 break
-            logger.error('iperf error: %s; retrying', res.error)
+            logger.error('iperf error %s; retrying', res.error)
         logger.debug('iperf result: %s', res)
         return res
 

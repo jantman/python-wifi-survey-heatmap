@@ -275,9 +275,13 @@ class HeatMapGenerator(object):
         gx, gy = np.meshgrid(x, y)
         gx, gy = gx.flatten(), gy.flatten()
         for k, ptitle in self.graphs.items():
-            self._plot(
-                a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
-            )
+            try:
+                self._plot(
+                    a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
+                )
+            except:
+                logger.warning('Cannot create {} plot: '
+                               'insufficient data'.format(k))
 
     def _channel_to_signal(self):
         """

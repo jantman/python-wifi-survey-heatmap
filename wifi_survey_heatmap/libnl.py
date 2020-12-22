@@ -73,13 +73,13 @@ logger = logging.getLogger(__name__)
 
 class Scanner(object):
 
-    def __init__(self, interface_name, scan=True):
+    def __init__(self, interface_name=None, scan=True):
         super().__init__()
         logger.debug(
             'Initializing Scanner for interface: %s',
             interface_name
         )
-        self._interface_name = interface_name
+        self.interface_name = interface_name
         self._scan = scan
         self.iface_data = {}
 
@@ -87,18 +87,25 @@ class Scanner(object):
 
         # Get all interfaces of this machine
         self.if_idx = None
-        self.update_iface_details(nl80211.NL80211_CMD_GET_INTERFACE)
-        names = []
+        self.iface_names = self.list_all_interfaces()
+
+    def set_interface(self, interface_name):
         for idx in self.iface_data:
-            if 'name' in self.iface_data[idx]:
-                names.append(self.iface_data[idx]['name'])
-                if self.iface_data[idx]['name'] == interface_name:
-                    self.if_idx = idx
-                    break
+            if self.iface_data[idx]['name'] == interface_name:
+                self.if_idx = idx
+                break
         if self.if_idx == None:
             logger.error("Device {0} is not a valid interface, use"
-                         " one of {1}".format(interface_name, names))
+                        " one of {1}".format(interface_name, self.iface_names))
             exit(1)
+
+    def list_all_interfaces(self):
+        self.update_iface_details(nl80211.NL80211_CMD_GET_INTERFACE)
+        iface_names = []
+        for idx in self.iface_data:
+            if 'name' in self.iface_data[idx]:
+                iface_names.append(self.iface_data[idx]['name'])
+        return iface_names
 
     def _error_handler(self, _, err, arg):
         """Update the mutable integer `arg` with the error code."""
@@ -289,7 +296,7 @@ class Scanner(object):
         # Scan for access points within reach
 
         # First get the wireless interface index.
-        pack = struct.pack('16sI', self._interface_name.encode('ascii'), 0)
+        pack = struct.pack('16sI', self.interface_name.encode('ascii'), 0)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             info = struct.unpack('16sI', fcntl.ioctl(
@@ -297,7 +304,7 @@ class Scanner(object):
         except OSError:
             return logger.warning(
                 'Wireless interface {0}\
-                    does not exist.'.format(self._interface_name))
+                    does not exist.'.format(self.interface_name))
         finally:
             sock.close()
         if_index = int(info[1])

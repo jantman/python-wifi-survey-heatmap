@@ -44,6 +44,7 @@ import os
 import subprocess
 
 from wifi_survey_heatmap.collector import Collector
+from wifi_survey_heatmap.libnl import Scanner
 
 FORMAT = "[%(asctime)s %(levelname)s] %(message)s"
 logging.basicConfig(level=logging.WARNING, format=FORMAT)
@@ -119,6 +120,7 @@ class SurveyPoint(object):
 
     def set_is_finished(self):
         self.is_finished = True
+        self.is_failed = False
         self.progress = 100
 
     def draw(self, dc, color=None):
@@ -192,14 +194,17 @@ class FloorplanPanel(wx.Panel):
             self._load_file(self.data_filename)
         self._duration = self.parent.duration
         self.collector = Collector(
-            self.parent.interface, self.parent.server, self._duration)
+            self.parent.server, self._duration, self.parent.scanner)
         self.parent.SetStatusText("Ready.")
 
     def _load_file(self, fpath):
         with open(fpath, 'r') as fh:
             raw = fh.read()
         data = json.loads(raw)
-        for point in data:
+        if 'survey_points' not in data:
+            logger.error('Trying to load incompatible JSON file')
+            exit(1)
+        for point in data['survey_points']:
             p = SurveyPoint(self, point['x'], point['y'])
             p.set_result(point['result'])
             p.set_is_finished()
@@ -282,7 +287,7 @@ class FloorplanPanel(wx.Panel):
         self._moving_point = point
         self._moving_x = point.x
         self._moving_y = point.y
-        point.draw(wx.ClientDC(self), color='blue')
+        point.draw(wx.ClientDC(self), color='lightblue')
 
     def onLeftUp(self, event):
         x, y = pos = self.get_xy(event)
@@ -293,9 +298,9 @@ class FloorplanPanel(wx.Panel):
         oldy = self._moving_point.y
         self._moving_point.x = x
         self._moving_point.y = y
-        self._moving_point.draw(wx.ClientDC(self), color='red')
+        self._moving_point.draw(wx.ClientDC(self), color='lightblue')
         res = self.YesNo(
-            f'Move point from blue ({oldx}, {oldy}) to red ({x}, {y})?'
+            f'Move point from ({oldx}, {oldy}) to ({x}, {y})?'
         )
         if not res:
             self._moving_point.x = self._moving_x
@@ -314,7 +319,7 @@ class FloorplanPanel(wx.Panel):
         self._moving_point.erase(dc)
         self._moving_point.x = x
         self._moving_point.y = y
-        self._moving_point.draw(dc, color='red')
+        self._moving_point.draw(dc, color='lightblue')
 
     def _check_bssid(self):
         # Return early if BSSID is not to be verified
@@ -334,9 +339,17 @@ class FloorplanPanel(wx.Panel):
         self.warn(msg)
         return False
 
+    def _abort(self, reason):
+        self.survey_points[-1].set_is_failed()
+        self.parent.SetStatusText('Aborted: {}'.format(reason))
+        self.Refresh()
+
     def _do_measurement(self, pos):
-        self.parent.SetStatusText('Got click at: %s' % pos)
+        self.parent.SetStatusText('Starting survey...')
+        # Add new survey point
         self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
+        # Delete failed survey points
+        self.survey_points = [p for p in self.survey_points if not p.is_failed]
         self.Refresh()
         res = {}
         count = 0
@@ -345,13 +358,15 @@ class FloorplanPanel(wx.Panel):
         # Check if we are connected to an AP, all the
         # rest doesn't any sense otherwise
         if not self.collector.check_associated():
+            self._abort("Not connected to an access point")
             return
         # Check BSSID
         if not self._check_bssid():
+            self._abort("BSSID check failed")
             return
 
         # Skip iperf test if empty server string was given
-        if len(self.collector._iperf_server) > 0:
+        if self.collector._iperf_server is not None:
             for protoname, udp in {'tcp': False, 'udp': True}.items():
                 for suffix, reverse in {'': False, '-reverse': True}.items():
                     # Update progress mark
@@ -360,15 +375,14 @@ class FloorplanPanel(wx.Panel):
 
                     # Check if we're still connected to the same AP
                     if not self._check_bssid():
+                        self._abort("BSSID check failed")
                         return
 
                     # Start iperf test
                     tmp = self.run_iperf(count, udp, reverse)
                     if tmp is None:
                         # bail out; abort this survey point
-                        del self.survey_points[-1]
-                        self.parent.SetStatusText('Aborted; ready to retry...')
-                        self.Refresh()
+                        self._abort("iperf test failed")
                         return
                     # else success
                     res['%s%s' % (protoname, suffix)] = {
@@ -377,7 +391,7 @@ class FloorplanPanel(wx.Panel):
 
         # Check if we're still connected to the same AP
         if not self._check_bssid():
-            del self.survey_points[-1]
+            self._abort("BSSID check failed")
             return
 
         # Get all signal metrics from nl
@@ -413,8 +427,11 @@ class FloorplanPanel(wx.Panel):
         subprocess.call([self.parent.ding_command, self.parent.ding_path])
 
     def _write_json(self):
+        # Only store finished survey points
+        survey_points = [p.as_dict for p in self.survey_points if p.is_finished]
+
         res = json.dumps(
-            [x.as_dict for x in self.survey_points],
+            {'img_path': self.img_path, 'survey_points': survey_points},
             cls=SafeEncoder, indent=2
         )
         with open(self.data_filename, 'w') as fh:
@@ -454,7 +471,8 @@ class FloorplanPanel(wx.Panel):
         # else this is an error
         if tmp.error.startswith('unable to connect to server'):
             self.warn(
-                'ERROR: Unable to connect to iperf server. Aborting.'
+                'ERROR: Unable to connect to iperf server at {}. Aborting.'.
+                format(self.collector._iperf_server)
             )
             return None
         if self.YesNo('iperf error: %s. Retry?' % tmp.error):
@@ -472,12 +490,11 @@ class FloorplanPanel(wx.Panel):
 class MainFrame(wx.Frame):
 
     def __init__(
-            self, img_path, interface, server, survey_title, scan, bssid, ding,
-            ding_command, duration, *args, **kw
+            self, img_path, server, survey_title, scan, bssid, ding,
+            ding_command, duration, scanner, *args, **kw
     ):
         super(MainFrame, self).__init__(*args, **kw)
         self.img_path = img_path
-        self.interface = interface
         self.server = server
         self.scan = scan
         self.survey_title = survey_title
@@ -488,6 +505,7 @@ class MainFrame(wx.Frame):
         self.ding_command = ding_command
         self.duration = duration
         self.CreateStatusBar()
+        self.scanner = scanner
         self.pnl = FloorplanPanel(self)
         self.makeMenuBar()
 
@@ -515,9 +533,14 @@ def parse_args(argv):
     p = argparse.ArgumentParser(description='wifi survey data collection UI')
     p.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
                    help='verbose output. specify twice for debug-level output.')
-    p.add_argument('-S', '--no-scan', dest='scan', action='store_false',
-                   default=True, help='skip access point scan')
-    p.add_argument('-b', '--bssid', dest='bssid', action='store', type=str,
+    p.add_argument('-S', '--scan', dest='scan', action='store_true',
+                   default=False, help='Scan for access points in the vicinity')
+    p.add_argument('-s', '--server', dest='IPERF3_SERVER', action='store', type=str,
+                   default=None, help='iperf3 server IP or hostname')
+    p.add_argument('-d', '--duration', dest='IPERF3_DURATION', action='store',
+                   type=int, default=10,
+                   help='Duration of each individual ipref3 test run')
+    p.add_argument('-b', '--bssid', dest='BSSID', action='store', type=str,
                    default=None, help='Restrict survey to this BSSID')
     p.add_argument('--ding', dest='ding', action='store', type=str,
                    default=None,
@@ -525,15 +548,14 @@ def parse_args(argv):
     p.add_argument('--ding-command', dest='ding_command', action='store',
                    type=str, default='/usr/bin/paplay',
                    help='Path to ding command')
-    p.add_argument('-d', '--duration', dest='duration', action='store',
-                   type=int, default=10,
-                   help='Duration of each individual ipref test run')
-    p.add_argument('INTERFACE', type=str, help='Wireless interface name')
-    p.add_argument('SERVER', type=str, help='iperf3 server IP or hostname')
-    p.add_argument('IMAGE', type=str, help='Path to background image')
-    p.add_argument(
-        'TITLE', type=str, help='Title for survey (and data filename)'
-    )
+    p.add_argument('-i', '--interface', dest='INTERFACE', action='store',
+                   type=str, default=None,
+                   help='Wireless interface name')
+    p.add_argument('-p', '--picture', dest='IMAGE', type=str,
+                   default=None, help='Path to background image')
+    p.add_argument('-t', '--title', dest='TITLE', type=str,
+                   default=None, help='Title for survey (and data filename)'
+                   )
     args = p.parse_args(argv)
     return args
 
@@ -567,6 +589,58 @@ def set_log_level_format(level, format):
     logger.setLevel(level)
 
 
+def ask_for_wifi_iface(app, scanner):
+    frame = wx.Frame(None)
+    title = 'Wireless interface'
+    description = 'Please specify the wireless interface\nto be used for your survey'
+    dlg = wx.SingleChoiceDialog(frame, description, title, scanner.iface_names)
+    if dlg.ShowModal() == wx.ID_OK:
+        resu = dlg.GetStringSelection()
+    else:
+        # User clicked [Cancel]
+        exit()
+    dlg.Destroy()
+    frame.Destroy()
+
+    return resu
+
+
+def ask_for_title(app):
+    frame = wx.Frame(None)
+    title = 'Title of your measurement'
+    description = 'Please specify a title for your measurement. This title will be used to store the results and to distinguish the generated plots'
+    default = 'Example'
+    dlg = wx.TextEntryDialog(frame, description, title)
+    dlg.SetValue(default)
+    if dlg.ShowModal() == wx.ID_OK:
+        resu = dlg.GetValue()
+    else:
+        # User clicked [Cancel]
+        exit()
+    dlg.Destroy()
+    frame.Destroy()
+
+    return resu
+
+
+def ask_for_floorplan(app):
+    frame = wx.Frame(None)
+    title = 'Select floorplan for your measurement'
+    dlg = wx.FileDialog(frame, title,
+                        wildcard='Compatible image files (*.png, *.jpg,*.tiff, *.bmp)|*.png;*.jpg;*.tiff;*.bmp;*:PNG;*.JPG;*.TIFF;*.BMP;*.jpeg;*.JPEG',
+                        style=wx.FD_FILE_MUST_EXIST)
+    if dlg.ShowModal() == wx.ID_OK:
+        resu = dlg.GetPath()
+        print(resu)
+    else:
+        # User clicked [Cancel]
+        exit()
+    dlg.Destroy()
+    frame.Destroy()
+
+    return resu
+
+
 def main():
     if os.getuid() != 0:
         logger.warning("You should run this script as root"
@@ -582,13 +656,37 @@ def main():
         set_log_info()
 
     app = wx.App()
+
+    scanner = Scanner(scan=args.scan)
+
+    # Ask for possibly missing fields
+    # Wireless interface
+    if args.INTERFACE is None:
+        INTERFACE = ask_for_wifi_iface(app, scanner)
+    else:
+        INTERFACE = args.INTERFACE
+
+    # Definitely set interface at this point
+    scanner.set_interface(INTERFACE)
+
+   # Floorplan image
+    if args.IMAGE is None:
+        IMAGE = ask_for_floorplan(app)
+    else:
+        IMAGE = args.IMAGE
+
+    # Title
+    if args.TITLE is None:
+        TITLE = ask_for_title(app)
+    else:
+        TITLE = args.TITLE
+
     frm = MainFrame(
-        args.IMAGE, args.INTERFACE, args.SERVER, args.TITLE, args.scan,
-        args.bssid, args.ding, args.ding_command, args.duration, None,
-        title='wifi-survey: %s' % args.TITLE,
+        IMAGE, args.IPERF3_SERVER, TITLE, args.scan,
+        args.BSSID, args.ding, args.ding_command, args.IPERF3_DURATION,
+        scanner, None, title='wifi-survey: %s' % args.TITLE,
     )
     frm.Show()
-    frm.Maximize(True)
     frm.SetStatusText('%s' % frm.pnl.GetSize())
     app.MainLoop()
 

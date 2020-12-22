@@ -51,6 +51,7 @@ from pylab import imread, imshow
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
 from matplotlib.font_manager import FontManager
+from matplotlib.colors import ListedColormap
 import matplotlib
 
 
@@ -136,14 +137,15 @@ class HeatMapGenerator(object):
         'udp_download_Mbps': 'Download (UDP) [MBit/s]',
         'tcp_upload_Mbps': 'Upload (TCP) [MBit/s]',
         'udp_upload_Mbps': 'Upload (UDP) [MBit/s]',
-        'jitter': 'UDP Jitter [ms]',
+        'jitter_download': 'UDP Download Jitter [ms]',
+        'jitter_upload': 'UDP Upload Jitter [ms]',
+        'frequency': 'Wi-Fi frequency [GHz]',
         'channel': 'Wi-Fi channel',
         'channel_bitrate': 'Maximum channel bandwidth [MBit/s]',
-
     }
 
     def __init__(
-        self, image_path, title, showpoints, cname, ignore_ssids=[], aps=None,
+        self, image_path, title, showpoints, cname, contours, ignore_ssids=[], aps=None,
         thresholds=None
     ):
         self._ap_names = {}
@@ -152,24 +154,36 @@ class HeatMapGenerator(object):
                 self._ap_names = {
                     x.upper(): y for x, y in json.loads(fh.read()).items()
                 }
-        self._image_path = image_path
         self._layout = None
         self._image_width = 0
         self._image_height = 0
         self._corners = [(0, 0), (0, 0), (0, 0), (0, 0)]
         self._title = title
         self._showpoints = showpoints
-        self._cname = cname
+        self._cmap = self.get_cmap(cname)
+        self._contours = contours
         if not self._title.endswith('.json'):
             self._title += '.json'
         self._ignore_ssids = ignore_ssids
         logger.debug(
-            'Initialized HeatMapGenerator; image_path=%s title=%s',
-            self._image_path, self._title
+            'Initialized HeatMapGenerator; title=%s',
+            self._title
         )
         with open(self._title, 'r') as fh:
             self._data = json.loads(fh.read())
-        logger.info('Loaded %d measurement points', len(self._data))
+        if 'survey_points' not in self._data:
+            logger.error('No survey points found in {}'.format(self._title))
+            exit()
+        logger.info('Loaded %d survey points',
+                    len(self._data['survey_points']))
+
+        # Try to load image from JSON if not overwritten
+        if image_path is None:
+            if 'img_path' not in self._data:
+                logger.error('No image path found in {}'.format(self._title))
+                exit(1)
+            self._image_path = self._data['img_path']
+
         self.thresholds = {}
         if thresholds is not None:
             logger.info('Loading thresholds from: %s', thresholds)
@@ -177,33 +191,55 @@ class HeatMapGenerator(object):
                 self.thresholds = json.loads(fh.read())
             logger.debug('Thresholds: %s', self.thresholds)
 
+    def get_cmap(self, cname):
+        multi_string = cname.split('//')
+        if len(multi_string) == 2:
+            cname = multi_string[0]
+            steps = int(multi_string[1])
+            N = 256
+            colormap = cm.get_cmap(cname, N)
+            newcolors = colormap(np.linspace(0, 1, N))
+            rgba = np.array([0, 0, 0, 1])
+            interval = int(N/steps) if steps > 0 else 0
+            for i in range(0,N,interval):
+                newcolors[i] = rgba
+            print(newcolors)
+            return ListedColormap(newcolors)
+        else:
+            return pp.get_cmap(cname)
+
     def load_data(self):
         a = defaultdict(list)
-        for row in self._data:
+        for row in self._data['survey_points']:
             a['x'].append(row['x'])
             a['y'].append(row['y'])
             a['channel'].append(row['result']['channel'])
-            a['tcp_upload_Mbps'].append(
-                row['result']['tcp']['received_Mbps']
-            )
-            a['tcp_download_Mbps'].append(
-                row['result']['tcp-reverse']['received_Mbps']
-            )
-            a['udp_download_Mbps'].append(row['result']['udp']['Mbps'])
-            a['udp_upload_Mbps'].append(row['result']['udp-reverse']['Mbps'])
-            a['jitter'].append(row['result']['udp']['jitter_ms'])
+            if 'tcp' in row['result']:
+                a['tcp_upload_Mbps'].append(
+                    row['result']['tcp']['received_Mbps']
+                )
+            if 'tcp-reverse' in row['result']:
+                a['tcp_download_Mbps'].append(
+                    row['result']['tcp-reverse']['received_Mbps']
+                )
+            if 'udp' in row['result']:
+                a['udp_download_Mbps'].append(row['result']['udp']['Mbps'])
+                a['jitter_download'].append(row['result']['udp']['jitter_ms'])
+            if 'udp-reverse' in row['result']:
+                a['udp_upload_Mbps'].append(
+                    row['result']['udp-reverse']['Mbps'])
+                a['jitter_upload'].append(
+                    row['result']['udp-reverse']['jitter_ms'])
             a['tx_power'].append(row['result']['tx_power'])
-            a['frequency'].append(row['result']['frequency'])
-            a['channel_bitrate'].append(row['result']['bitrate'])
+            a['frequency'].append(row['result']['frequency']*1e-3)
+            if 'bitrate' in row['result']:
+                a['channel_bitrate'].append(row['result']['bitrate'])
             a['signal_quality'].append(row['result']['signal_mbm']+130)
             ap = self._ap_names.get(
                 row['result']['ssid'].upper(),
                 row['result']['ssid']
             )
-            if row['result']['frequency'] < 5000:
-                a['ap'].append(ap + '_2.4GHz')
-            else:
-                a['ap'].append(ap + '_5GHz')
+            a['ap'].append(ap + ' ({0:.1f} GHz)'.format(1e-3*int(row['result']['frequency'])))
         return a
 
     def _load_image(self):
@@ -239,9 +275,13 @@ class HeatMapGenerator(object):
         gx, gy = np.meshgrid(x, y)
         gx, gy = gx.flatten(), gy.flatten()
         for k, ptitle in self.graphs.items():
-            self._plot(
-                a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
-            )
+            try:
+                self._plot(
+                    a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
+                )
+            except:
+                logger.warning('Cannot create {} plot: '
+                               'insufficient data'.format(k))
 
     def _channel_to_signal(self):
         """
@@ -251,7 +291,7 @@ class HeatMapGenerator(object):
         """
         # build a dict of frequency (GHz) to list of quality values
         channels = defaultdict(list)
-        for row in self._data:
+        for row in self._data['survey_points']:
             for scan in row['result']['scan_results']:
                 ssid = row['result']['scan_results'][scan]['ssid']
                 if ssid in self._ignore_ssids:
@@ -338,11 +378,18 @@ class HeatMapGenerator(object):
         return at
 
     def _plot(self, a, key, title, gx, gy, num_x, num_y):
+        if key not in a:
+            logger.info("Skipping {} due to insufficient data".format(key))
+            return
+        if not len(a['x']) == len(a['y']) == len(a[key]):
+            logger.info("Skipping {} because data has holes".format(key))
+            return
         logger.debug('Plotting: %s', key)
         pp.rcParams['figure.figsize'] = (
             self._image_width / 300, self._image_height / 300
         )
-        pp.title(title)
+        fig, ax = pp.subplots()
+        ax.set_title(title)
         if 'min' in self.thresholds.get(key, {}):
             vmin = self.thresholds[key]['min']
             logger.debug('Using min threshold from thresholds: %s', vmin)
@@ -368,36 +415,44 @@ class HeatMapGenerator(object):
             # (avoids interpolation artifacts)
             z = numpy.ones((num_y, num_x))*vmin
         # Render the interpolated data to the plot
-        pp.axis('off')
+        ax.axis('off')
         # begin color mapping
-
-        cmap = pp.get_cmap(self._cname)
         norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
-        mapper = cm.ScalarMappable(norm=norm, cmap=cmap)
+        mapper = cm.ScalarMappable(norm=norm, cmap=self._cmap)
         # end color mapping
-        image = pp.imshow(
+        image = ax.imshow(
             z,
             extent=(0, self._image_width, self._image_height, 0),
             alpha=0.5, zorder=100,
-            cmap=cmap, vmin=vmin, vmax=vmax
+            cmap=self._cmap, vmin=vmin, vmax=vmax
         )
-        cbar = pp.colorbar(image)
+
+        # Draw contours if requested and meaningful in this plot
+        if self._contours is not None and vmin != vmax:
+            CS = ax.contour(z, colors='k', linewidths=1, levels=self._contours,
+                            extent=(0, self._image_width, self._image_height, 0),
+                            alpha=0.3, zorder=150, origin='upper')
+            ax.clabel(CS, inline=1, fontsize=6)
+        cbar = fig.colorbar(image)
+
         # Print only one ytick label when there is only one value to be shown
         if vmin == vmax:
             cbar.set_ticks([vmin])
-        pp.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
+
+        # Draw floorplan itself to the lowest layer with full opacity
+        ax.imshow(self._layout, interpolation='bicubic', zorder=1, alpha=1)
         labelsize = FontManager.get_default_size() * 0.4
         if(self._showpoints):
             # begin plotting points
             for idx in range(0, len(a['x'])):
                 if (a['x'][idx], a['y'][idx]) in self._corners:
                     continue
-                pp.plot(
-                    a['x'][idx], a['y'][idx],
+                ax.plot(
+                    a['x'][idx], a['y'][idx], zorder=200,
                     marker='o', markeredgecolor='black', markeredgewidth=1,
                     markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
                 )
-                pp.text(
+                ax.text(
                     a['x'][idx], a['y'][idx] - 30,
                     a['ap'][idx], fontsize=labelsize,
                     horizontalalignment='center'
@@ -429,10 +484,14 @@ def parse_args(argv):
                         'a string to label each measurement with, showing '
                         'which AP it was connected to. Useful when doing '
                         'multi-AP surveys.')
-    p.add_argument('-c', '--cmap-name', type=str, dest='cname', action='store',
+    p.add_argument('-c', '--cmap', type=str, dest='CNAME', action='store',
                    default="RdYlBu_r",
                    help='If specified, a valid matplotlib colormap name.')
-    p.add_argument('IMAGE', type=str, help='Path to background image')
+    p.add_argument('-n', '--contours', type=int, dest='N', action='store',
+                   default=None,
+                   help='If specified, N contour lines will be added to the graphs')
+    p.add_argument('-p', '--picture', dest='IMAGE', type=str, action='store',
+                   default=None, help='Path to background image')
     p.add_argument(
         'TITLE', type=str, help='Title for survey (and data filename)'
     )
@@ -483,7 +542,7 @@ def main():
     showpoints = True if args.showpoints > 0 else False
 
     HeatMapGenerator(
-        args.IMAGE, args.TITLE, showpoints, args.cname,
+        args.IMAGE, args.TITLE, showpoints, args.CNAME, args.N,
         ignore_ssids=args.ignore, aps=args.aps, thresholds=args.thresholds
     ).generate()
 

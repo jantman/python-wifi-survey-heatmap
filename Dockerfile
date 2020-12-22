@@ -6,22 +6,26 @@ ARG repo_ref
 USER root
 
 RUN apt-get update && \
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  DEBIAN_FRONTEND=noninteractive \
+  apt-get install -y --no-install-recommends \
     iperf3 \
     gcc \
     git \
     pulseaudio-utils \
     python3 \
     python3-dev \
-    python3-matplotlib \
     python3-pip \
-    python3-scipy \
     python3-setuptools \
-    python3-wheel \
     python3-wxgtk4.0 \
-    wireless-tools && \
-  pip3 install \
-    iperf3
+    wireless-tools \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install iperf3 matplotlib scipy wheel
+
+# Install libnl from DL6ER's fork because the python3.6+
+# compatibility fixes weren't included in the upstream
+# project in 12/2020
+RUN pip3 install --upgrade --user git+https://github.com/DL6ER/libnl
 
 COPY . /app
 

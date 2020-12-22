@@ -47,28 +47,33 @@ logger = logging.getLogger(__name__)
 
 class Collector(object):
 
-    def __init__(self, interface_name, server_addr, duration, scan=True):
+    def __init__(self, server_addr, duration, scanner, scan=True):
         super().__init__()
         logger.debug(
             'Initializing Collector for interface: %s; iperf server: %s',
-            interface_name, server_addr
+            scanner.interface_name, server_addr
         )
         # ensure interface_name is a wireless interfaces
-        self._interface_name = interface_name
         self._iperf_server = server_addr
         self._scan = scan
         self._duration = duration
-
-        self.scanner = Scanner(interface_name, scan)
+        self.scanner = scanner
 
     def run_iperf(self, udp=False, reverse=False):
         client = iperf3.Client()
         client.duration = self._duration
-        client.server_hostname = self._iperf_server
-        client.port = 5201
+
+        server_parts = self._iperf_server.split(":")
+        if len(server_parts) == 2:
+            client.server_hostname = server_parts[0]
+            client.port = int(server_parts[1])
+        else:
+            client.server_hostname = self._iperf_server
+            client.port = 5201 # substitute some default port
+
         client.protocol = 'udp' if udp else 'tcp'
         client.reverse = reverse
-        logger.debug(
+        logger.info(
             'Running iperf to %s; udp=%s reverse=%s', self._iperf_server,
             udp, reverse
         )
@@ -76,7 +81,7 @@ class Collector(object):
             res = client.run()
             if res.error is None:
                 break
-            logger.error('iperf error: %s; retrying', res.error)
+            logger.error('iperf error %s; retrying', res.error)
         logger.debug('iperf result: %s', res)
         return res
 

@@ -145,7 +145,7 @@ class HeatMapGenerator(object):
     }
 
     def __init__(
-        self, image_path, title, showpoints, cname, contours, ignore_ssids=[], aps=None,
+        self, image_path, title, showpoints=False, cname='RdYlBu_r', contours=None, ignore_ssids=[], aps=None,
         thresholds=None
     ):
         self._ap_names = {}

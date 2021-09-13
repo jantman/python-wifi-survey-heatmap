@@ -45,6 +45,7 @@ requires = [
     'iperf3==0.1.10',
     'matplotlib==3.3.0',
     'scipy==1.5.2'
+    'wxPython==4.1.1'
 ]
 
 classifiers = [

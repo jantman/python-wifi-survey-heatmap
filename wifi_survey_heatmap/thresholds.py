@@ -55,10 +55,10 @@ class ThresholdGenerator(object):
         items = [HeatMapGenerator(None, t).load_data() for t in titles]
         for key in HeatMapGenerator.graphs.keys():
             res[key]['min'] = min([
-                min(x[key]) for x in items
+                min(value for value in x[key] if value is not None) for x in items
             ])
             res[key]['max'] = max([
-                max(x[key]) for x in items
+                max(value for value in x[key] if value is not None) for x in items
             ])
         with open('thresholds.json', 'w') as fh:
             fh.write(json.dumps(res))

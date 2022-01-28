@@ -12,8 +12,10 @@ python-wifi-survey-heatmap
 A Python application for Linux machines to perform WiFi site surveys and present
 the results as a heatmap overlayed on a floorplan.
 
-This is very rough, very alpha code. The heatmap generation code is roughly based on
+This is rather rough "beta" code. The heatmap generation code is roughly based on
 `Beau Gunderson's MIT-licensed wifi-heatmap code <https://github.com/beaugunderson/wifi-heatmap>`_.
+
+Many thanks to `DL6ER <https://github.com/DL6ER>`__ who contributed a massive amount of improvements to this project.
 
 Quick start
 -----------

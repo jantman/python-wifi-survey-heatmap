@@ -1,9 +1,9 @@
 python-wifi-survey-heatmap
 ==========================
 
-.. image:: https://www.repostatus.org/badges/latest/wip.svg
-   :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
-   :target: https://www.repostatus.org/#wip
+.. image:: https://www.repostatus.org/badges/latest/inactive.svg
+   :alt: Project Status: Inactive – The project has reached a stable, usable state but is no longer being actively developed; support/maintenance will be provided as time allows.
+   :target: https://www.repostatus.org/#inactive
 
 .. image:: https://img.shields.io/docker/cloud/build/jantman/python-wifi-survey-heatmap.svg
    :alt: Docker Hub Build Status

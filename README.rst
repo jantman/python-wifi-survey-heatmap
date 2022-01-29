@@ -166,7 +166,7 @@ Note that running with ``--net="host"`` and ``--privileged`` is required in orde
 Heatmap
 +++++++
 
-``docker run -it --rm -v $(pwd):/pwd -w /pwd jantman/python-wifi-survey-heatmap:23429a4 wifi-heatmap -p <FLOORPLAN PNG> <TITLE>``
+``docker run -it --rm -v $(pwd):/pwd -w /pwd jantman/python-wifi-survey-heatmap:23429a4 wifi-heatmap <TITLE>``
 
 iperf3 server
 +++++++++++++

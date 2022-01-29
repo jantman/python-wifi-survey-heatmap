@@ -183,6 +183,8 @@ class HeatMapGenerator(object):
                 logger.error('No image path found in {}'.format(self._title))
                 exit(1)
             self._image_path = self._data['img_path']
+        else:
+            self._image_path = image_path
 
         self.thresholds = {}
         if thresholds is not None:

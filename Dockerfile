@@ -8,16 +8,22 @@ USER root
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive \
   apt-get install -y --no-install-recommends \
-    iperf3 \
     gcc \
+    g++ \
     git \
+    iperf3 \
+    libjpeg-dev \
     pulseaudio-utils \
     python3 \
+    python3-cffi \
     python3-dev \
     python3-pip \
+    python3-scipy \
     python3-setuptools \
+    python3-wheel \
     python3-wxgtk4.0 \
     wireless-tools \
+    zlib1g zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install iperf3 matplotlib scipy wheel

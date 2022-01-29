@@ -39,6 +39,7 @@ Changelog
     * Allow iperf3 server to be specified as ip:port
 
 * `PR 15 <https://github.com/jantman/python-wifi-survey-heatmap/pull/15>`_ from `chris-reeves <https://github.com/chris-reeves>`__ - Handle missing data points
+* Update Dockerfile
 
 0.2.1 (2020-08-11)
 ------------------

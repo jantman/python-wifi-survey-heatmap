@@ -93,6 +93,7 @@ class Scanner(object):
         for idx in self.iface_data:
             if self.iface_data[idx]['name'] == interface_name:
                 self.if_idx = idx
+                self.interface_name = interface_name
                 break
         if self.if_idx == None:
             logger.error("Device {0} is not a valid interface, use"

@@ -40,6 +40,7 @@ Changelog
 
 * `PR 15 <https://github.com/jantman/python-wifi-survey-heatmap/pull/15>`_ from `chris-reeves <https://github.com/chris-reeves>`__ - Handle missing data points
 * Update Dockerfile
+* Fix `Issue 17 <https://github.com/jantman/python-wifi-survey-heatmap/issues/17>`_ - AttributeError when scanning APs, caused by unset/NoneType interface_name.
 
 0.2.1 (2020-08-11)
 ------------------

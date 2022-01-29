@@ -29,7 +29,7 @@ Creating a heatmap using the software consists of the following three essential 
 Installation and Dependencies
 -----------------------------
 
-**NOTE: These can all be ignored when using Docker. See below.**
+**NOTE: These can all be ignored when using Docker. DOCKER IS THE RECOMMENDED INSTALLATION METHOD. See below.**
 
 * The Python `iperf3 <https://pypi.org/project/iperf3/>`_ package, which needs `iperf3 <http://software.es.net/iperf/>`_ installed on your system.
 * The Python `libiw <https://pypi.org/project/libiw/>`_ package.
@@ -68,7 +68,7 @@ Ideally, you should be running the same exact iperf3 version on both machines.
 Performing a Survey
 +++++++++++++++++++
 
-The survey tool (``wifi-survey``) must be run as root or via ``sudo`` in order to use iwconfig/iwlist.
+The survey tool (``wifi-survey``) must be run as root or via ``sudo`` in order to use iwconfig/iwlist (or via Docker; see below).
 
 First connect to the network that you want to survey. Then, run ``sudo wifi-survey`` where:
 
@@ -81,6 +81,7 @@ Command-line options include:
 * ``-S`` / ``--scan`` to enable wireless scaning at the end of each measurement. This may take a lot of time, however, generates data used later for generating channel utilization graphs. If you're using a modern wireless product that allows running RF scans, it makes sense to use that data instead of these scans.
 * ``-b BSSID`` / ``--bssid BSSID`` allows you to specify a single desired BSSID for your survey. This will be checked several times during of every measurement, and the measurement will be discarded if you're connected to the wrong BSSID. This can be useful as a safeguard to make sure you don't accidentally roam to a different AP.
 * ``-d 123`` / ``--duration 123`` allows you to change the duration of each individual `iperf3` test run (default is 10 seconds as mentioned above)
+* ``--ding FILENAME`` will play the audio file at FILENAME when each measurement point is complete. See `Playing A Sound When Measurement Finishes <#playing-a-sound-when-measurement-finishes>`_ below for details.
 
 If ``TITLE.json`` already exists, the data from it will be pre-loaded into the application; this can be used to **resume a survey**.
 
@@ -143,6 +144,8 @@ Running In Docker
 Survey
 ++++++
 
+Note the
+
 .. code-block:: bash
 
    docker run \
@@ -156,14 +159,14 @@ Survey
      -e DISPLAY=$DISPLAY \
      -v "$HOME/.Xauthority:/root/.Xauthority:ro" \
      jantman/python-wifi-survey-heatmap \
-     wifi-survey
+     wifi-survey -b <BSSID> -i <INTERFACE> -s <IPERF SERVER> -p <FLOORPLAN PNG> -t <TITLE>
 
 Note that running with ``--net="host"`` and ``--privileged`` is required in order to manipulate the host's wireless interface.
 
 Heatmap
 +++++++
 
-``docker run -it --rm -v $(pwd):/pwd -w /pwd jantman/python-wifi-survey-heatmap:23429a4 wifi-heatmap Example``
+``docker run -it --rm -v $(pwd):/pwd -w /pwd jantman/python-wifi-survey-heatmap:23429a4 wifi-heatmap <TITLE>``
 
 iperf3 server
 +++++++++++++

@@ -26,12 +26,7 @@ RUN apt-get update && \
     zlib1g zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install iperf3 matplotlib scipy wheel
-
-# Install libnl from DL6ER's fork because the python3.6+
-# compatibility fixes weren't included in the upstream
-# project in 12/2020
-RUN pip3 install --upgrade --user git+https://github.com/DL6ER/libnl
+RUN pip3 install iperf3 matplotlib scipy wheel libnl3
 
 COPY . /app
 

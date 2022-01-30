@@ -45,6 +45,7 @@ requires = [
     'iperf3==0.1.10',
     'matplotlib==3.3.0',
     'scipy==1.5.2'
+    'libnl3==0.3.0',
 ]
 
 classifiers = [
@@ -63,6 +64,10 @@ classifiers = [
     'Programming Language :: Python :: 3.4',
     'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
     'Topic :: System :: Networking'
 ]
 

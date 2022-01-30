@@ -43,6 +43,7 @@ Changelog
 * Fix `Issue 17 <https://github.com/jantman/python-wifi-survey-heatmap/issues/17>`_ - AttributeError when scanning APs, caused by unset/NoneType interface_name.
 * Update examples in README
 * Fix `Issue 18 <https://github.com/jantman/python-wifi-survey-heatmap/issues/18>`_ - AttributeError in ``wifi-heatmap`` entrypoint - 'HeatMapGenerator' object has no attribute '_image_path'.
+* Switch from using DL6ER's libnl fork to `libnl3 <https://pypi.org/project/libnl3/>`__
 
 0.2.1 (2020-08-11)
 ------------------

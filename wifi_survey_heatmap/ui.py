@@ -561,6 +561,9 @@ def parse_args(argv):
     p.add_argument('-t', '--title', dest='TITLE', type=str,
                    default=None, help='Title for survey (and data filename)'
                    )
+    p.add_argument('--libnl-debug', dest='libnl_debug', action='store_true',
+                   default=False,
+                   help='enable debug-level logging for libnl')
     args = p.parse_args(argv)
     return args
 
@@ -659,6 +662,12 @@ def main():
         set_log_debug()
     elif args.verbose == 1:
         set_log_info()
+
+    if not args.libnl_debug:
+        for lname in ['libnl']:
+            log = logging.getLogger(lname)
+            log.setLevel(logging.WARNING)
+            log.propagate = True
 
     app = wx.App()
 

@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.0.0 (2022-01-29)
+1.0.0 (2022-02-19)
 ------------------
 
 * Merge `PR 4 <https://github.com/jantman/python-wifi-survey-heatmap/pull/4>`_ and `PR 6 <https://github.com/jantman/python-wifi-survey-heatmap/pull/6>`_ containing a massive number of improvements by `DL6ER <https://github.com/DL6ER>`__
@@ -44,6 +44,9 @@ Changelog
 * Update examples in README
 * Fix `Issue 18 <https://github.com/jantman/python-wifi-survey-heatmap/issues/18>`_ - AttributeError in ``wifi-heatmap`` entrypoint - 'HeatMapGenerator' object has no attribute '_image_path'.
 * Switch from using DL6ER's libnl fork to `libnl3 <https://pypi.org/project/libnl3/>`__
+* Fix `Issue 19 <https://github.com/jantman/python-wifi-survey-heatmap/issues/19>`_ - BSSID option was intermittently not working. This has been fixed.
+* Add command-line option to toggle libnl debug-level logging on or off (off by default).
+* Fix for non-integer screen positions when scaling.
 
 0.2.1 (2020-08-11)
 ------------------

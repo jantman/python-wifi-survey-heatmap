@@ -87,8 +87,7 @@ class Collector(object):
 
     def check_associated(self):
         logger.debug('Checking association with AP...')
-        data = self.scanner.get_iface_data(update=True)
-        if "bssid" not in data:
+        if self.scanner.get_current_bssid() is None:
             logger.warning('Not associated to an AP')
             return False
         else:

@@ -506,9 +506,9 @@ class MainFrame(wx.Frame):
         self.server = server
         self.scan = scan
         self.survey_title = survey_title
-        self.bssid = bssid
-        if self.bssid is not None:
-            self.bssid = self.bssid.lower()
+        self.bssid = None
+        if bssid:
+            self.bssid = bssid.lower()
         self.ding_path = ding
         self.ding_command = ding_command
         self.duration = duration

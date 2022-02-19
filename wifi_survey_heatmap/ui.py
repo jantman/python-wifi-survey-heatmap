@@ -331,12 +331,15 @@ class FloorplanPanel(wx.Panel):
         if self.parent.bssid is None:
             return True
         # Get BSSID from link
-        data = self.collector.scanner.get_iface_data(update=True)
-        bssid = data['bssid']
+        bssid = self.collector.scanner.get_current_bssid()
         # Compare BSSID, exit early on match
         if bssid == self.parent.bssid:
             return True
         # Error logging
+        logger.error(
+            'Expected BSSID %s but found BSSID %s from kernel',
+            self.parent.bssid, bssid
+        )
         msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
               f'BSSID {bssid}'
         self.parent.SetStatusText(msg)

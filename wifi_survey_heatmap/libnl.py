@@ -38,25 +38,25 @@ Dominik DL6ER <dl6er@dl6er.de>
 ##################################################################################
 """
 
-import logging
 import ctypes
 import fcntl
 import logging
-import math
-import os
-import signal
 import socket
 import struct
-import sys
 import time
 import datetime
 
 # For scanning access points in the vicinity
 import libnl.handlers
-from libnl.attr import nla_data, nla_get_string, nla_get_u8, nla_get_u16, nla_get_u32, nla_parse, nla_put_u32, nla_parse, nla_parse_nested, nla_put, nla_put_nested
+from libnl.attr import (
+    nla_data, nla_get_string, nla_get_u8, nla_get_u16, nla_get_u32, nla_put_u32,
+    nla_parse, nla_parse_nested, nla_put, nla_put_nested
+)
 from libnl.error import errmsg
 from libnl.genl.ctrl import genl_ctrl_resolve, genl_ctrl_resolve_grp
-from libnl.genl.genl import genl_connect, genlmsg_attrdata, genlmsg_attrlen, genlmsg_put
+from libnl.genl.genl import (
+    genl_connect, genlmsg_attrdata, genlmsg_attrlen, genlmsg_put
+)
 from libnl.linux_private.genetlink import genlmsghdr
 from libnl.linux_private.netlink import NLM_F_DUMP
 from libnl.msg import nlmsg_alloc, nlmsg_data, nlmsg_hdr
@@ -64,9 +64,11 @@ from libnl.nl import nl_recvmsgs, nl_send_auto, nl_recvmsgs_default
 from libnl.nl80211 import nl80211
 from libnl.nl80211.helpers import parse_bss
 from libnl.nl80211.iw_scan import bss_policy
-from libnl.socket_ import nl_socket_add_membership, nl_socket_alloc, nl_socket_drop_membership, nl_socket_modify_cb
+from libnl.socket_ import (
+    nl_socket_add_membership, nl_socket_alloc, nl_socket_drop_membership,
+    nl_socket_modify_cb
+)
 from libnl.handlers import NL_CB_CUSTOM, NL_CB_VALID, NL_SKIP
-from ctypes import c_int32
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +90,7 @@ class Scanner(object):
         # Get all interfaces of this machine
         self.if_idx = None
         self.iface_names = self.list_all_interfaces()
+        self.bssid = None
 
     def set_interface(self, interface_name):
         for idx in self.iface_data:
@@ -95,9 +98,11 @@ class Scanner(object):
                 self.if_idx = idx
                 self.interface_name = interface_name
                 break
-        if self.if_idx == None:
-            logger.error("Device {0} is not a valid interface, use"
-                        " one of {1}".format(interface_name, self.iface_names))
+        if self.if_idx is None:
+            logger.error(
+                "Device %s is not a valid interface, use one of %s",
+                interface_name, self.iface_names
+            )
             exit(1)
 
     def list_all_interfaces(self):
@@ -134,7 +139,8 @@ class Scanner(object):
         if gnlh.cmd == nl80211.NL80211_CMD_SCAN_ABORTED:
             arg.value = 1  # The scan was aborted for some reason.
         elif gnlh.cmd == nl80211.NL80211_CMD_NEW_SCAN_RESULTS:
-            # The scan completed successfully. `callback_dump` will collect the results later.
+            # The scan completed successfully. `callback_dump` will collect
+            # the results later.
             arg.value = 0
         return libnl.handlers.NL_SKIP
 
@@ -148,7 +154,8 @@ class Scanner(object):
         # results -- dictionary to populate with parsed data.
         bss = dict()  # To be filled by nla_parse_nested().
 
-        # First we must parse incoming data into manageable chunks and check for errors.
+        # First we must parse incoming data into manageable chunks and check
+        # for errors.
         gnlh = genlmsghdr(nlmsg_data(nlmsg_hdr(msg)))
         tb = dict((i, None) for i in range(nl80211.NL80211_ATTR_MAX + 1))
         nla_parse(tb, nl80211.NL80211_ATTR_MAX, genlmsg_attrdata(
@@ -169,7 +176,8 @@ class Scanner(object):
                 'No additional information available for an access point!')
             return libnl.handlers.NL_SKIP
 
-        # Further parse and then store. Overwrite existing data for BSSID if scan is run multiple times.
+        # Further parse and then store. Overwrite existing data for
+        # BSSID if scan is run multiple times.
         bss_parsed = parse_bss(bss)
         results[bss_parsed['bssid']] = bss_parsed
         return libnl.handlers.NL_SKIP
@@ -190,12 +198,14 @@ class Scanner(object):
         # self._nl_sock -- nl_sock class instance (from nl_socket_alloc()).
         # if_index -- interface index (integer).
         # driver_id -- nl80211 driver ID from genl_ctrl_resolve() (integer).
-        # mcid -- nl80211 scanning group ID from genl_ctrl_resolve_grp() (integer).
+        # mcid -- nl80211 scanning group ID from genl_ctrl_resolve_grp()
+        #                (integer).
         #
         # Returns:
         # 0 on success or a negative error code.
 
-        # First get the "scan" membership group ID and join the socket to the group.
+        # First get the "scan" membership group ID and join the socket to the
+        # group.
         logger.debug('Joining group %d.', mcid)
         # Listen for results of scan requests (aborted or new results).
         ret = nl_socket_add_membership(self._nl_sock, mcid)
@@ -222,14 +232,20 @@ class Scanner(object):
         # started.
         results = ctypes.c_int(-1)
         cb = libnl.handlers.nl_cb_alloc(libnl.handlers.NL_CB_DEFAULT)
-        libnl.handlers.nl_cb_set(cb, libnl.handlers.NL_CB_VALID,
-                                 libnl.handlers.NL_CB_CUSTOM, self._callback_trigger, results)
+        libnl.handlers.nl_cb_set(
+            cb, libnl.handlers.NL_CB_VALID, libnl.handlers.NL_CB_CUSTOM,
+            self._callback_trigger, results
+        )
         libnl.handlers.nl_cb_err(
             cb, libnl.handlers.NL_CB_CUSTOM, self._error_handler, err)
         libnl.handlers.nl_cb_set(
-            cb, libnl.handlers.NL_CB_ACK, libnl.handlers.NL_CB_CUSTOM, self._ack_handler, err)
-        libnl.handlers.nl_cb_set(cb, libnl.handlers.NL_CB_SEQ_CHECK, libnl.handlers.NL_CB_CUSTOM,
-                                 lambda *_: libnl.handlers.NL_OK, None)  # Ignore sequence checking.
+            cb, libnl.handlers.NL_CB_ACK, libnl.handlers.NL_CB_CUSTOM,
+            self._ack_handler, err
+        )
+        libnl.handlers.nl_cb_set(
+            cb, libnl.handlers.NL_CB_SEQ_CHECK, libnl.handlers.NL_CB_CUSTOM,
+            lambda *_: libnl.handlers.NL_OK, None
+        )  # Ignore sequence checking.
 
         # Now we send the message to the kernel, and retrieve the
         # acknowledgement. The kernel takes a few seconds to finish scanning for
@@ -284,8 +300,9 @@ class Scanner(object):
                     nl80211.NL80211_CMD_GET_SCAN, 0)
         nla_put_u32(msg, nl80211.NL80211_ATTR_IFINDEX, if_index)
         cb = libnl.handlers.nl_cb_alloc(libnl.handlers.NL_CB_DEFAULT)
-        libnl.handlers.nl_cb_set(cb, libnl.handlers.NL_CB_VALID,
-                                 libnl.handlers.NL_CB_CUSTOM, self._callback_dump, results)
+        libnl.handlers.nl_cb_set(
+            cb, libnl.handlers.NL_CB_VALID, libnl.handlers.NL_CB_CUSTOM,
+            self._callback_dump, results)
         logger.debug('Sending NL80211_CMD_GET_SCAN...')
         ret = nl_send_auto(self._nl_sock, msg)
         if ret >= 0:
@@ -361,7 +378,6 @@ class Scanner(object):
         # An integer, value of NL_SKIP. It tells libnl to stop calling other
         # callbacks for this message and proceed with processing the next kernel
         # message.
-
         # First convert `msg` into something more manageable.
         gnlh = genlmsghdr(nlmsg_data(nlmsg_hdr(msg)))
 
@@ -424,6 +440,12 @@ class Scanner(object):
             mac_raw = nla_data(tb[nl80211.NL80211_ATTR_MAC])[:6]
             mac_address = ':'.join(format(x, '02x') for x in mac_raw)
             iface_data['mac'] = mac_address
+            if (
+                gnlh.cmd == nl80211.NL80211_CMD_NEW_STATION and
+                if_index == self.if_idx
+            ):
+                # This is the BSSID that we're currently associated to
+                self.bssid = mac_address
 
         if tb[nl80211.NL80211_ATTR_GENERATION]:
             generation = nla_get_u32(tb[nl80211.NL80211_ATTR_GENERATION])
@@ -505,13 +527,11 @@ class Scanner(object):
 
         # Append data to global structure
         self.iface_data[if_index] = iface_data
-
         return NL_SKIP
 
     def update_iface_details(self, cmd):
         # Send a command specified by CMD to the kernel and attach a callback to
         # process the returned values into our own datastructure
-
         self._nl_sock = nl_socket_alloc()  # Creates an `nl_sock` instance.
         # Create file descriptor and bind socket.
         ret = genl_connect(self._nl_sock)
@@ -533,7 +553,7 @@ class Scanner(object):
 
         # Setup the Generic Netlink message.
         msg = nlmsg_alloc()  # Allocate a message.
-        if self.if_idx == None:
+        if self.if_idx is None:
             # Ask kernel to send info for all wireless interfaces.
             genlmsg_put(msg, 0, 0, driver_id, 0, NLM_F_DUMP,
                         nl80211.NL80211_CMD_GET_INTERFACE, 0)
@@ -541,7 +561,6 @@ class Scanner(object):
             genlmsg_put(msg, 0, 0, driver_id, 0, NLM_F_DUMP, cmd, 0)
             # This is the interface we care about.
             nla_put_u32(msg, nl80211.NL80211_ATTR_IFINDEX, self.if_idx)
-            #nla_put_u32(msg, nl80211.NL80211_ATTR_MAC, 2199023255552)
 
         # Add the callback function to the self._nl_sock.
         nl_socket_modify_cb(self._nl_sock, NL_CB_VALID,
@@ -565,9 +584,19 @@ class Scanner(object):
             return {}
 
     def get_iface_data(self, update=False):
-        if(update):
+        if update:
             logger.debug("Updating WiFi interface data ...")
             self.update_iface_details(nl80211.NL80211_CMD_GET_STATION)
             self.update_iface_details(nl80211.NL80211_CMD_GET_SCAN)
-
         return self.iface_data[self.if_idx]
+
+    def get_current_bssid(self):
+        """
+        Returns the current BSSID MAC address as a string, or None if not
+        currently associated.
+        """
+        assert self.if_idx is not None
+        self.bssid = None
+        self.update_iface_details(nl80211.NL80211_CMD_GET_SCAN)
+        self.update_iface_details(nl80211.NL80211_CMD_GET_STATION)
+        return self.bssid

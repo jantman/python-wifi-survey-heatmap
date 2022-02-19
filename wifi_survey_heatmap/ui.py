@@ -138,12 +138,17 @@ class SurveyPoint(object):
         y = self.y / self.parent.scale_y
 
         # Draw circle
-        dc.DrawCircle(x, y, self.dotSize)
+        dc.DrawCircle(int(x), int(y), self.dotSize)
 
         # Put progress label on top of the circle
-        dc.DrawLabel("{}%".format(self.progress), wx.Rect(
-            x-self.dotSize/2, y-self.dotSize/2,
-            self.dotSize, self.dotSize), wx.ALIGN_CENTER)
+        dc.DrawLabel(
+            "{}%".format(self.progress),
+            wx.Rect(
+                int(x-self.dotSize/2), int(y-self.dotSize/2),
+                int(self.dotSize), int(self.dotSize)
+            ),
+            wx.ALIGN_CENTER
+        )
 
     def erase(self, dc):
         """quicker than redrawing, since DC doesn't have persistence"""
@@ -152,7 +157,7 @@ class SurveyPoint(object):
         # Relative scaling
         x = self.x / self.parent.scale_x
         y = self.y / self.parent.scale_y
-        dc.DrawCircle(x, y, 1.1*self.dotSize)
+        dc.DrawCircle(int(x), int(y), 1.1*self.dotSize)
 
     def includes_point(self, x, y):
         if (

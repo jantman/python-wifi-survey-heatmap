@@ -238,8 +238,8 @@ class HeatMapGenerator(object):
                 a['channel_bitrate'].append(row['result']['bitrate'])
             a['signal_quality'].append(row['result']['signal_mbm']+130)
             ap = self._ap_names.get(
-                row['result']['ssid'].upper(),
-                row['result']['ssid']
+                row['result']['mac'].upper(),
+                row['result']['mac']
             )
             a['ap'].append(ap + ' ({0:.1f} GHz)'.format(1e-3*int(row['result']['frequency'])))
         return a

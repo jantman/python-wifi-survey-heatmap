@@ -1,6 +1,11 @@
 Changelog
 =========
 
+1.1.0 (2022-04-05)
+------------------
+
+* Merge `PR 24 <https://github.com/jantman/python-wifi-survey-heatmap/pull/24>`_ to fix `Issue 22 <https://github.com/jantman/python-wifi-survey-heatmap/issues/22>`_ where APs were being plotted with SSID instead of BSSID, and therefore wifi-heatmap `--ap-names` option was not working.
+
 1.0.0 (2022-02-19)
 ------------------
 

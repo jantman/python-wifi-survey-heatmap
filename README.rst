@@ -241,8 +241,14 @@ Issues
 ------
 
 If you see:
-```
-Couldn't connect to accessibility bus: Failed to connect to socket /run/user/1000/at-spi/bus_0: No such file or directory
-```
-when running in docker, mount the socket in docker explicitly: `docker run ... -v /run/user/1000/at-spi/bus_0:/run/user/1000/at-spi/bus_0 ...`
+
+.. code-block:: bash
+
+    Couldn't connect to accessibility bus: Failed to connect to socket /run/user/1000/at-spi/bus_0: No such file or directory
+
+when running in docker, mount the socket in docker explicitly by adding an additional `-v` switch:
+
+.. code-block:: bash
+
+   docker run ... -v /run/user/1000/at-spi/bus_0:/run/user/1000/at-spi/bus_0 ...
 

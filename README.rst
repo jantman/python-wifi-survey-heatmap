@@ -22,6 +22,7 @@ Quick start
 
 Check out the **Running In Docker** steps below to get single-line commands that run without the need to install *anything* on your computer (thanks to using `docker`).
 Creating a heatmap using the software consists of the following three essential steps:
+
 1. Start an `iperf3` server on any machine in your local network. This server is used for bandwidth measurements to be independent of your Internet connection. When omitting the `--server` option, this may be skipped, however, be aware that the performance heatmaps tpyically are the icing on the cake of your measurement and are very useful in determining the *real* performance of your WiFi.
 2. Use the `wifi-survey` tool to record a measurement. You can load a floorplan and click on your current location ot record signal strength and determine the achievable bandwidth.
 3. Once done with all the measurements, use the `wifi-heatmap` tool to compute a high-resolution heatmap from your recorded data. In case your data turns out to be too coarse, you can always go back to step 2 and delete or move old and also add new measurements at any time.
@@ -235,3 +236,19 @@ UDP Upload Speed (Mbps)
 
 .. image:: examples/udp_Mbps_WAP1.png
    :alt: example udp upload heatmap
+
+Issues
+------
+
+If you see:
+
+.. code-block:: bash
+
+    Couldn't connect to accessibility bus: Failed to connect to socket /run/user/1000/at-spi/bus_0: No such file or directory
+
+when running in docker, mount the socket in docker explicitly by adding an additional `-v` switch:
+
+.. code-block:: bash
+
+   docker run ... -v /run/user/1000/at-spi/bus_0:/run/user/1000/at-spi/bus_0 ...
+

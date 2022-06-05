@@ -52,7 +52,12 @@ class ThresholdGenerator(object):
 
     def generate(self, titles):
         res = defaultdict(dict)
-        items = [HeatMapGenerator(None, t).load_data() for t in titles]
+        items = [
+            HeatMapGenerator(
+                None, t, False, 'RdYlBu_r', None
+            ).load_data()
+            for t in titles
+        ]
         for key in HeatMapGenerator.graphs.keys():
             res[key]['min'] = min([
                 min(value for value in x[key] if value is not None) for x in items

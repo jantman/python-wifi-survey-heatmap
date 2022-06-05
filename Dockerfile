@@ -1,4 +1,4 @@
-FROM debian:buster-20220527
+FROM debian:bullseye
 
 ARG build_date
 ARG repo_url
@@ -26,7 +26,7 @@ RUN apt-get update && \
     zlib1g zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install iperf3 matplotlib scipy wheel libnl3
+RUN pip3 install iperf3 matplotlib wheel libnl3
 
 COPY . /app
 

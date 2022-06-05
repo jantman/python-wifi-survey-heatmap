@@ -42,9 +42,9 @@ with open('README.rst') as file:
     long_description = file.read()
 
 requires = [
-    'iperf3==0.1.10',
-    'matplotlib==3.3.0',
-    'scipy==1.5.2',
+    'iperf3==0.1.11',
+    'matplotlib==3.5.2',
+    'scipy==1.8.1',
     'libnl3==0.3.0',
 ]
 

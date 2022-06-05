@@ -1,6 +1,14 @@
 Changelog
 =========
 
+1.2.0 (2022-06-05)
+------------------
+
+* Merge `PR 26 <https://github.com/jantman/python-wifi-survey-heatmap/pull/26>`_ to add documentation on ``Couldn't connect to accessibility bus`` error, thanks to `hnykda <https://github.com/hnykda>`__.
+* Fix ``TypeError`` in ``wifi-heatmap-thresholds`` entrypoint.
+* Update all Python dependencies.
+* Update Docker image to latest Debian Buster.
+
 1.1.0 (2022-04-05)
 ------------------
 

@@ -282,8 +282,11 @@ class HeatMapGenerator(object):
                     a, k, '%s - %s' % (self._title, ptitle), gx, gy, num_x, num_y
                 )
             except:
-                logger.warning('Cannot create {} plot: '
-                               'insufficient data'.format(k))
+                logger.warning(
+                    "Cannot create %s plot: insufficient data",
+                    k,
+                    exc_info=True,
+                )
 
     def _channel_to_signal(self):
         """

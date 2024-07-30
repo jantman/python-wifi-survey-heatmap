@@ -9,13 +9,21 @@ python-wifi-survey-heatmap
    :alt: Docker Hub Build Status
    :target: https://hub.docker.com/r/jantman/python-wifi-survey-heatmap
 
-A Python application for Linux machines to perform WiFi site surveys and present
-the results as a heatmap overlayed on a floorplan.
+A Python application for Linux machines to perform WiFi site surveys and present the results as a heatmap overlayed on a floorplan.
 
 This is rather rough "beta" code. The heatmap generation code is roughly based on
 `Beau Gunderson's MIT-licensed wifi-heatmap code <https://github.com/beaugunderson/wifi-heatmap>`_.
 
 Many thanks to `DL6ER <https://github.com/DL6ER>`__ who contributed a massive amount of improvements to this project.
+
+Operating System support
+------------------------
+
+As mentioned in the description, this project is for **LINUX ONLY**. That doesn't mean a Linux docker container on Windows or Mac, or running it on Mac. The WiFi features - the heart of this project - are built on `libnl3 <https://pypi.org/project/libnl3/>`__, a Python wrapper around the Netlink protocol-based Linux kernel interfaces. In short, the survey commands will **only** work on a system that's running Linux, and where the Linux kernel is directly managing the WiFi hardware.
+
+For people not running Linux, I am aware of (but have no affiliation with, haven't used, and can't endorse) the following projects:
+
+* `hnykda/wifi-heatmapper <https://github.com/hnykda/wifi-heatmapper>`__ for MacOS
 
 Quick start
 -----------
@@ -33,7 +41,7 @@ Installation and Dependencies
 **NOTE: These can all be ignored when using Docker. DOCKER IS THE RECOMMENDED INSTALLATION METHOD. See below.**
 
 * The Python `iperf3 <https://pypi.org/project/iperf3/>`_ package, which needs `iperf3 <http://software.es.net/iperf/>`_ installed on your system.
-* The Python `libiw <https://pypi.org/project/libiw/>`_ package.
+* The Python `libnl3 <https://pypi.org/project/libnl3/>`_ package.
 * `wxPython Phoenix <https://wiki.wxpython.org/How%20to%20install%20wxPython>`_, which unfortunately must be installed using OS packages or built from source.
 * An iperf3 server running on another system on the LAN, as described below is recommended but optional.
 

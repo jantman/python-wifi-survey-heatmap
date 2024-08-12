@@ -702,10 +702,94 @@ def ask_for_floorplan(app):
     return resu
 
 
+def main_root():
+    data = json.loads(sys.stdin.readline())
+    if data["cmd"] != "init":
+        sys.stderr.print("Invalid command tuple:" + json.dumps(data))
+        return
+
+    scanner = Scanner(scan=False)
+    scanner.set_interface(data["interface"])
+
+    sys.stdout.write(json.dumps({"status": "ok", "data":None})+"\n")
+    sys.stdout.flush()
+
+    while True:
+        data = json.loads(sys.stdin.readline())
+        if data["cmd"] == "get_current_bssid":
+            result = scanner.get_current_bssid()
+        elif data["cmd"] == "get_iface_data":
+            result = scanner.get_iface_data()
+        elif data["cmd"] == "scan_all_access_points":
+            result = scanner.scan_all_access_points()
+        else:
+            sys.stderr.print("Invalid action tuple:" + json.dumps(data))
+            return
+        sys.stdout.write(json.dumps({"status": "ok", "data": result})+"\n")
+        sys.stdout.flush()
+
+class RemoteScanner(object):
+
+    def __init__(self, popen, scan=True, interface=None):
+        super().__init__()
+        logger.debug(
+            'Initializing RemoteScanner interface: %s',
+            interface
+        )
+        self.p = popen
+        # initialize the subprocess
+        self._write({"cmd": "init", "interface": interface})
+        self.interface_name = interface
+
+    def _write(self, data):
+        txt = json.dumps(data)
+        self.p.stdin.write(f"{txt}\n")
+        self.p.stdin.flush()
+        result = self.p.stdout.readline()
+        logger.debug(result)
+        if result == "" or result == "\n":
+            raise "Subprocess exited"
+        obj = json.loads(result)
+        if obj["status"] != "ok":
+            logger.warn(result)
+            raise obj
+        else:
+            return obj["data"]
+
+
+    def get_current_bssid(self):
+        return self._write({"cmd": "get_current_bssid"})
+
+    def get_iface_data(self):
+        return self._write({"cmd": "get_iface_data"})
+
+    def scan_all_access_points(self):
+        return self._write({"cmd": "scan_all_access_points"})
+
+SECRET_ELEVATED_CHILD = "--internal-elevated-scannner"
+
+
 def main():
+    if sys.argv[1:] == [SECRET_ELEVATED_CHILD]:
+        if os.geteuid() != 0:
+            raise RuntimeError('ERROR: This script must be run as root/sudo.')
+        main_root()
+        return
+
+    p = None
     if os.getuid() != 0:
-        logger.warning("You should run this script as root"
-                       " to be able to trigger Wi-Fi scans.")
+        pass # we can parse the args first
+    else:
+        if os.getenv("SUDO_UID") is not None:
+            # Drop to the sudo UID after we span the child
+            p = Popen([sys.executable, sys.argv[0], SECRET_ELEVATED_CHILD], stdin=PIPE, stdout=PIPE,text=True)
+            uid = int(os.getenv("SUDO_UID"))
+            gid = int(os.getenv("SUDO_GID"))
+            logger.warning("Launched process via SUDO UID, spawned privledged child and dropping permissiong to uid=" + str(uid))
+            os.setgid(gid)
+            os.setuid(uid)
+        else:
+            logger.warning("You should not run this script as root.")
 
     # Parse input arguments
     args = parse_args(sys.argv[1:])
@@ -723,6 +807,10 @@ def main():
             log.propagate = True
 
     app = wx.App()
+
+    if args.scan and p is None:
+        # FIXME: this doesn't work in all environments, we need to munge the env first
+        p = Popen(['pkexec', sys.executable, sys.argv[0], SECRET_ELEVATED_CHILD], stdout=PIPE, stdin=PIPE, text=True)
 
     scanner = Scanner(scan=args.scan)
 
@@ -747,6 +835,9 @@ def main():
         TITLE = ask_for_title(app)
     else:
         TITLE = args.TITLE
+
+    if p is not None:
+        scanner = RemoteScanner(p, interface=INTERFACE)
 
     frm = MainFrame(
         IMAGE, args.IPERF3_SERVER, TITLE, args.scan,

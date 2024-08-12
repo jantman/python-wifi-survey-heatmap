@@ -42,6 +42,8 @@ import wx
 import json
 import os
 import subprocess
+import threading
+from pubsub import pub
 
 from wifi_survey_heatmap.collector import Collector
 from wifi_survey_heatmap.libnl import Scanner
@@ -157,7 +159,7 @@ class SurveyPoint(object):
         # Relative scaling
         x = self.x / self.parent.scale_x
         y = self.y / self.parent.scale_y
-        dc.DrawCircle(int(x), int(y), 1.1*self.dotSize)
+        dc.DrawCircle(int(x), int(y), int(1.1*self.dotSize))
 
     def includes_point(self, x, y):
         if (
@@ -175,12 +177,31 @@ class SafeEncoder(json.JSONEncoder):
             return obj.decode()
         return json.JSONEncoder.default(self, obj)
 
+class WorkerThread(threading.Thread):
+    def __init__(self, action):
+        threading.Thread.__init__(self)
+        self.setDaemon(1)
+        self._action = action
+        self._want_abort = False
+        self.done = False
+        self.start()
+
+    def run(self):
+        try:
+            self._action(lambda: self._want_abort)
+        finally:
+            self.done = True
+
+    def abort(self):
+        self._want_abort=True
 
 class FloorplanPanel(wx.Panel):
 
+    # UI thread only
     def __init__(self, parent):
         super(FloorplanPanel, self).__init__(parent)
         self.parent = parent
+        self.ui_thread = threading.current_thread()
         self.img_path = parent.img_path
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_LEFT_UP, self.onLeftUp)
@@ -188,6 +209,9 @@ class FloorplanPanel(wx.Panel):
         self.Bind(wx.EVT_MOTION, self.onMotion)
         self.Bind(wx.EVT_RIGHT_UP, self.onRightClick)
         self.Bind(wx.EVT_PAINT, self.on_paint)
+        pub.subscribe(self.setStatus, "status")
+        pub.subscribe(self.warn, "warn")
+        pub.subscribe(self.Refresh, "refresh")
         self.survey_points = []
         self._moving_point = None
         self._moving_x = None
@@ -201,7 +225,9 @@ class FloorplanPanel(wx.Panel):
         self.collector = Collector(
             self.parent.server, self._duration, self.parent.scanner)
         self.parent.SetStatusText("Ready.")
+        self.current_worker = None
 
+    # UI thread only
     def _load_file(self, fpath):
         with open(fpath, 'r') as fh:
             raw = fh.read()
@@ -215,6 +241,7 @@ class FloorplanPanel(wx.Panel):
             p.set_is_finished()
             self.survey_points.append(p)
 
+    # UI thread only
     def OnEraseBackground(self, evt):
         """Add a picture to the background"""
         dc = evt.GetDC()
@@ -243,7 +270,20 @@ class FloorplanPanel(wx.Panel):
         scaled_bmp = wx.Bitmap(image)
         dc.DrawBitmap(scaled_bmp, 0, 0)
 
+    # Any Thread
+    def setStatus(self, text):
+        if threading.current_thread() is self.ui_thread:
+            self.parent.SetStatusText(text)
+            self.Refresh()
+        else:
+            self.onUiThread("status", text=text)
+
+    # On non-UI thread
+    def onUiThread(self, methodName, **args):
+        wx.CallAfter(pub.sendMessage, methodName, **args)
+
     # Get X and Y coordinated scaled to ABSOLUTE coordinates of the floorplan
+    # UI thread only
     def get_xy(self, event):
         X, Y = event.GetPosition()
         W, H = self.GetSize()
@@ -251,6 +291,7 @@ class FloorplanPanel(wx.Panel):
         y = int(Y * self.scale_y)
         return [x, y]
 
+    # UI thread only
     def onRightClick(self, event):
         x, y = self.get_xy(event)
         point = None
@@ -259,23 +300,22 @@ class FloorplanPanel(wx.Panel):
             if p.includes_point(x, y):
                 point = p
         if point is None:
-            self.parent.SetStatusText(
+            self.setStatus(
                 f"No survey point found at ({x}, {y})"
             )
-            self.Refresh()
             return
         # ok, we have a point to remove
         point.draw(wx.ClientDC(self), color='blue')
+        self.Refresh()
         res = self.YesNo(f'Remove point at ({x}, {y}) shown in blue?')
         if not res:
-            self.parent.SetStatusText('Not removing point.')
-            self.Refresh()
+            self.setStatus('Not removing point.')
             return
         self.survey_points.remove(point)
-        self.parent.SetStatusText(f'Removed point at ({x}, {y})')
-        self.Refresh()
+        self.setStatus(f'Removed point at ({x}, {y})')
         self._write_json()
 
+    # UI thread only
     def onLeftDown(self, event):
         x, y = self.get_xy(event)
         point = None
@@ -284,16 +324,16 @@ class FloorplanPanel(wx.Panel):
             if p.includes_point(x, y):
                 point = p
         if point is None:
-            self.parent.SetStatusText(
+            self.setStatus(
                 f"No survey point found at ({x}, {y})"
             )
-            self.Refresh()
             return
         self._moving_point = point
         self._moving_x = point.x
         self._moving_y = point.y
         point.draw(wx.ClientDC(self), color='lightblue')
 
+    # UI thread only
     def onLeftUp(self, event):
         x, y = pos = self.get_xy(event)
         if self._moving_point is None:
@@ -304,6 +344,7 @@ class FloorplanPanel(wx.Panel):
         self._moving_point.x = x
         self._moving_point.y = y
         self._moving_point.draw(wx.ClientDC(self), color='lightblue')
+        self.Refresh()
         res = self.YesNo(
             f'Move point from ({oldx}, {oldy}) to ({x}, {y})?'
         )
@@ -316,6 +357,7 @@ class FloorplanPanel(wx.Panel):
         self.Refresh()
         self._write_json()
 
+    # UI thread only
     def onMotion(self, event):
         if self._moving_point is None:
             return
@@ -326,6 +368,7 @@ class FloorplanPanel(wx.Panel):
         self._moving_point.y = y
         self._moving_point.draw(dc, color='lightblue')
 
+    # Background thread only
     def _check_bssid(self):
         # Return early if BSSID is not to be verified
         if self.parent.bssid is None:
@@ -342,27 +385,25 @@ class FloorplanPanel(wx.Panel):
         )
         msg = f'ERROR: Expected BSSID {self.parent.bssid} but found ' \
               f'BSSID {bssid}'
-        self.parent.SetStatusText(msg)
-        self.Refresh()
-        self.warn(msg)
+        self.setStatus(msg)
+        self.onUiThread("warn", message=msg)
         return False
 
+    # Any thread
     def _abort(self, reason):
         self.survey_points[-1].set_is_failed()
-        self.parent.SetStatusText('Aborted: {}'.format(reason))
-        self.Refresh()
+        self.setStatus('Aborted: {}'.format(reason))
 
+    # UI thread only
     def _do_measurement(self, pos):
-        self.parent.SetStatusText('Starting survey...')
+        if self.current_worker and self.current_worker.done == False:
+            return
         # Add new survey point
         self.survey_points.append(SurveyPoint(self, pos[0], pos[1]))
         # Delete failed survey points
         self.survey_points = [p for p in self.survey_points if not p.is_failed]
-        self.Refresh()
-        res = {}
-        count = 0
-        # Number of steps in total (for the progress computation)
-        steps = 5
+        self.setStatus('Starting survey...')
+
         # Check if we are connected to an AP, all the
         # rest doesn't any sense otherwise
         if not self.collector.check_associated():
@@ -372,13 +413,21 @@ class FloorplanPanel(wx.Panel):
         if not self._check_bssid():
             self._abort("BSSID check failed")
             return
+        self.current_worker = WorkerThread(self._do_work)
 
+    # Background thread only
+    def _do_work(self, is_cancelled):
+        res = {}
+        count = 0
+        # Number of steps in total (for the progress computation)
+        steps = 5
         # Skip iperf test if empty server string was given
         if self.collector._iperf_server is not None:
             for protoname, udp in {'tcp': False, 'udp': True}.items():
                 for suffix, reverse in {'': False, '-reverse': True}.items():
                     # Update progress mark
                     self.survey_points[-1].set_progress(count, steps)
+                    self.onUiThread("refresh")
                     count += 1
 
                     # Check if we're still connected to the same AP
@@ -403,9 +452,8 @@ class FloorplanPanel(wx.Panel):
             return
 
         # Get all signal metrics from nl
-        self.parent.SetStatusText(
-            'Getting signal metrics (Quality, signal strength, etc.)...')
-        self.Refresh()
+        self.setStatus(
+                'Getting signal metrics (Quality, signal strength, etc.)...')
         data = self.collector.scanner.get_iface_data()
         # Merge dicts
         res = {**res, **data}
@@ -413,27 +461,27 @@ class FloorplanPanel(wx.Panel):
 
         # Scan APs in the neighborhood
         if self.parent.scan:
-            self.parent.SetStatusText(
+            self.setStatus(
                 'Scanning all access points within reach...')
-            self.Refresh()
             res['scan_results'] = self.collector.scan_all_access_points()
         self.survey_points[-1].set_progress(5, steps)
 
         # Save results and mark survey point as complete
         self.survey_points[-1].set_result(res)
         self.survey_points[-1].set_is_finished()
-        self.parent.SetStatusText(
+        self.setStatus(
             'Saving to: %s' % self.data_filename
         )
-        self.Refresh()
         self._write_json()
         self._ding()
 
+    # any thread
     def _ding(self):
         if self.parent.ding_path is None:
             return
         subprocess.call([self.parent.ding_command, self.parent.ding_path])
 
+    # any thread
     def _write_json(self):
         # Only store finished survey points
         survey_points = [p.as_dict for p in self.survey_points if p.is_finished]
@@ -444,17 +492,18 @@ class FloorplanPanel(wx.Panel):
         )
         with open(self.data_filename, 'w') as fh:
             fh.write(res)
-        self.parent.SetStatusText(
+        self.setStatus(
             'Saved to %s; ready...' % self.data_filename
         )
-        self.Refresh()
 
+    # UI thread only
     def warn(self, message, caption='Warning!'):
         dlg = wx.MessageDialog(self.parent, message, caption,
                                wx.OK | wx.ICON_WARNING)
         dlg.ShowModal()
         dlg.Destroy()
 
+    # UI thread only
     def YesNo(self, question, caption='Yes or no?'):
         dlg = wx.MessageDialog(self.parent, question, caption,
                                wx.YES_NO | wx.ICON_QUESTION)
@@ -462,17 +511,17 @@ class FloorplanPanel(wx.Panel):
         dlg.Destroy()
         return result
 
+    # Any thread
     def run_iperf(self, count, udp, reverse):
         proto = "UDP" if udp else "TCP"
         # iperf3 default direction is uploading to the server
         direction = "Download" if reverse else "Upload"
-        self.parent.SetStatusText(
+        self.setStatus(
             'Running iperf %d/4: %s (%s) - takes %i seconds' % (count,
                                                                 direction,
                                                                 proto,
                                                                 self._duration)
         )
-        self.Refresh()
         tmp = self.collector.run_iperf(udp, reverse)
         if tmp.error is None:
             return tmp
@@ -489,6 +538,7 @@ class FloorplanPanel(wx.Panel):
         # else bail out
         return tmp
 
+    # UI thread only
     def on_paint(self, event=None):
         dc = wx.ClientDC(self)
         for p in self.survey_points:

@@ -809,8 +809,7 @@ def main():
     app = wx.App()
 
     if args.scan and p is None:
-        # FIXME: this doesn't work in all environments, we need to munge the env first
-        p = Popen(['pkexec', sys.executable, sys.argv[0], SECRET_ELEVATED_CHILD], stdout=PIPE, stdin=PIPE, text=True)
+        p = Popen(['pkexec', 'env', 'HOME='+os.getenv("HOME"), sys.executable, sys.argv[0], SECRET_ELEVATED_CHILD], stdout=PIPE, stdin=PIPE, text=True)
 
     scanner = Scanner(scan=args.scan)
 

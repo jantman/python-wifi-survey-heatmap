@@ -77,7 +77,7 @@ Ideally, you should be running the same exact iperf3 version on both machines.
 Performing a Survey
 +++++++++++++++++++
 
-The survey tool (``wifi-survey``) must be run as root or via ``sudo`` in order to use iwconfig/iwlist (or via Docker; see below).
+The survey tool (``wifi-survey``) only requires root privileges for scans. It can be run via ``sudo`` in which case it will drop back to your user after forking off the scan process, or it will launch the scan process via ``pkexec`` if not started with ``sudo`` (or via Docker; see below).
 
 First connect to the network that you want to survey. Then, run ``sudo wifi-survey`` where:
 
@@ -110,7 +110,7 @@ Playing A Sound When Measurement Finishes
 
 It's possible to have ``wifi-survey`` play a sound when each measurement is complete. This can be handy if you're reading or watching something in another window while waiting for the measurements.
 
-To enable this, call ``wifi-survey`` with the ``--ding`` argument, passing it the path to an audio file to play. A short sound effect is included in this repository at ``wifi_survey_heatmap/complete.oga`` and can be used via ``--ding wifi_survey_heatmap/complete.oga``. by default, this will call ``/usr/bin/paplay`` (the PulseAudio player) passing it the ding file path as the only argument. The command used can be overridden with ``--ding-command /path/to/command`` but it must be one that accepts the path to an audio file as its only argument.
+To enable this, call ``wifi-survey`` with the ``--ding`` argument, passing it the path to an audio file to play. A short sound effect is included in this repository at ``wifi_survey_heatmap/complete.oga`` and can be used via ``--ding wifi_survey_heatmap/complete.oga``. by default, this will call ``/usr/bin/paplay`` (the PulseAudio player) passing it the ding file path as the only argument. The command used can be overridden with ``--ding-command /path/to/command`` but it must be one that accepts the path to an audio file as its only argument. If you launch the scan as your user or via ``sudo``, the UI & the PulseAudio client will be run as your user and work without further configuration. If you run as root not via ``sudo``, then additional PuseAudo configuration may be necessary.
 
 Inside Docker, however, this becomes quite a bit more difficult. Currently PulseAudio systems are supported, and this can be set up and enabled with the following steps:
 

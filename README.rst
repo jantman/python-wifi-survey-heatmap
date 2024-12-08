@@ -260,3 +260,9 @@ when running in docker, mount the socket in docker explicitly by adding an addit
 
    docker run ... -v /run/user/1000/at-spi/bus_0:/run/user/1000/at-spi/bus_0 ...
 
+Release Process
+---------------
+
+1. Merge all PRs desired in the release.  
+2. Update ``CHANGES.rst``, commit, push.
+3. Tag the repo with the version number and push. GitHub Actions will build and push the Docker image and create a Release.

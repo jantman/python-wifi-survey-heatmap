@@ -1,6 +1,14 @@
 Changelog
 =========
 
+2.0.0 (2024-12-08)
+------------------
+
+* Bump base Docker image from Buster to Bullseye.
+* Merge `PR 34 <https://github.com/jantman/python-wifi-survey-heatmap/pull/34>`_ to include plot failure exception in logging, thanks to `josephw <https://github.com/josephw>`_.
+* README - include link to similar project for MacOS.
+* Massive contribution from `byteit101 <https://github.com/byteit101>`_ in `PR 38 <https://github.com/jantman/python-wifi-survey-heatmap/pull/38>`_ to move the UI processing to a thread, resolve duplicate point plotting issues, better handle sudo, and many other fixes.
+
 1.2.0 (2022-06-05)
 ------------------
 

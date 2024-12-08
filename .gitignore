@@ -75,3 +75,4 @@ result.json
 /channels*.png
 
 pyvenv.cfg
+venv/

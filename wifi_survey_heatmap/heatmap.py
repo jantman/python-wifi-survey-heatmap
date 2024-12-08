@@ -146,7 +146,7 @@ class HeatMapGenerator(object):
 
     def __init__(
         self, image_path, title, showpoints, cname, contours, ignore_ssids=[], aps=None,
-        thresholds=None
+        thresholds=None, hidebssid=False
     ):
         self._ap_names = {}
         if aps is not None:
@@ -165,6 +165,7 @@ class HeatMapGenerator(object):
         if not self._title.endswith('.json'):
             self._title += '.json'
         self._ignore_ssids = ignore_ssids
+        self._hidebssid = hidebssid
         logger.debug(
             'Initialized HeatMapGenerator; title=%s',
             self._title
@@ -212,7 +213,13 @@ class HeatMapGenerator(object):
 
     def load_data(self):
         a = defaultdict(list)
+        check = set()
         for row in self._data['survey_points']:
+            point = (row['x'], row['y'])
+            if point in check:
+                logger.warning(f"Two overlapping datapoints found. Discarding one of them. point={point}")
+                continue
+            check.add(point)
             a['x'].append(row['x'])
             a['y'].append(row['y'])
             a['channel'].append(row['result']['channel'])
@@ -457,11 +464,12 @@ class HeatMapGenerator(object):
                     marker='o', markeredgecolor='black', markeredgewidth=1,
                     markerfacecolor=mapper.to_rgba(a[key][idx]), markersize=6
                 )
-                ax.text(
-                    a['x'][idx], a['y'][idx] - 30,
-                    a['ap'][idx], fontsize=labelsize,
-                    horizontalalignment='center'
-                )
+                if not self._hidebssid:
+                    ax.text(
+                        a['x'][idx], a['y'][idx] - 30,
+                        a['ap'][idx], fontsize=labelsize,
+                        horizontalalignment='center'
+                    )
             # end plotting points
         fname = '%s_%s.png' % (key, self._title)
         logger.info('Writing plot to: %s', fname)
@@ -502,6 +510,8 @@ def parse_args(argv):
     )
     p.add_argument('-s', '--show-points', dest='showpoints', action='count',
                    default=0, help='show measurement points in file')
+    p.add_argument('-H', '--hide-bssid', dest='hidebssid', action='store_true',
+                   default=False, help='Hide the default point information')
     args = p.parse_args(argv)
     return args
 
@@ -548,7 +558,7 @@ def main():
 
     HeatMapGenerator(
         args.IMAGE, args.TITLE, showpoints, args.CNAME, args.N,
-        ignore_ssids=args.ignore, aps=args.aps, thresholds=args.thresholds
+        ignore_ssids=args.ignore, aps=args.aps, thresholds=args.thresholds, hidebssid=args.hidebssid
     ).generate()
 
 

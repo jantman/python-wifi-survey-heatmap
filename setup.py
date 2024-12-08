@@ -46,6 +46,7 @@ requires = [
     'matplotlib==3.5.2',
     'scipy==1.8.1',
     'libnl3==0.3.0',
+    'pypubsub==4.0.3',
 ]
 
 classifiers = [

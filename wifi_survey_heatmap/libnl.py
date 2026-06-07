@@ -144,6 +144,27 @@ class Scanner(object):
             arg.value = 0
         return libnl.handlers.NL_SKIP
 
+    def _extract_bss(self, tb):
+        bss = dict()
+
+        if not tb[nl80211.NL80211_ATTR_BSS]:
+            logger.warning('BSS info missing for an access point.')
+            return None
+        if nla_parse_nested(bss, nl80211.NL80211_BSS_MAX,
+                            tb[nl80211.NL80211_ATTR_BSS], bss_policy):
+            logger.warning(
+                'Failed to parse nested attributes for an access point!')
+            return None
+        if not bss[nl80211.NL80211_BSS_BSSID]:
+            logger.warning('No BSSID detected for an access point!')
+            return None
+        if not bss[nl80211.NL80211_BSS_INFORMATION_ELEMENTS]:
+            logger.warning(
+                'No additional information available for an access point!')
+            return None
+
+        return parse_bss(bss)
+
     def _callback_dump(self, msg, results):
         # Here is where SSIDs and their data is decoded from the binary data
         # sent by the kernel. This function is called once per SSID. Everything
@@ -160,25 +181,13 @@ class Scanner(object):
         tb = dict((i, None) for i in range(nl80211.NL80211_ATTR_MAX + 1))
         nla_parse(tb, nl80211.NL80211_ATTR_MAX, genlmsg_attrdata(
             gnlh, 0), genlmsg_attrlen(gnlh, 0), None)
-        if not tb[nl80211.NL80211_ATTR_BSS]:
-            logger.warning('BSS info missing for an access point.')
-            return libnl.handlers.NL_SKIP
-        if nla_parse_nested(bss, nl80211.NL80211_BSS_MAX,
-                            tb[nl80211.NL80211_ATTR_BSS], bss_policy):
-            logger.warning(
-                'Failed to parse nested attributes for an access point!')
-            return libnl.handlers.NL_SKIP
-        if not bss[nl80211.NL80211_BSS_BSSID]:
-            logger.warning('No BSSID detected for an access point!')
-            return libnl.handlers.NL_SKIP
-        if not bss[nl80211.NL80211_BSS_INFORMATION_ELEMENTS]:
-            logger.warning(
-                'No additional information available for an access point!')
+
+        bss_parsed = self._extract_bss(tb)
+        if bss_parsed is None:
             return libnl.handlers.NL_SKIP
 
         # Further parse and then store. Overwrite existing data for
         # BSSID if scan is run multiple times.
-        bss_parsed = parse_bss(bss)
         results[bss_parsed['bssid']] = bss_parsed
         return libnl.handlers.NL_SKIP
 
@@ -446,6 +455,10 @@ class Scanner(object):
             ):
                 # This is the BSSID that we're currently associated to
                 self.bssid = mac_address
+        elif if_index == self.if_idx:
+            bss = self._extract_bss(tb)
+            if bss is not None and 'status' in bss and bss['status'] == 'associated':
+                self.bssid = bss['bssid']
 
         if tb[nl80211.NL80211_ATTR_GENERATION]:
             generation = nla_get_u32(tb[nl80211.NL80211_ATTR_GENERATION])

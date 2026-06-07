@@ -782,7 +782,7 @@ def main():
     else:
         if os.getenv("SUDO_UID") is not None:
             # Drop to the sudo UID after we span the child
-            p = Popen([sys.executable, sys.argv[0], SECRET_ELEVATED_CHILD], stdin=PIPE, stdout=PIPE,text=True)
+            p = subprocess.Popen([sys.executable, sys.argv[0], SECRET_ELEVATED_CHILD], stdin=subprocess.PIPE, stdout=subprocess.PIPE,text=True)
             uid = int(os.getenv("SUDO_UID"))
             gid = int(os.getenv("SUDO_GID"))
             logger.warning("Launched process via SUDO UID, spawned privledged child and dropping permissiong to uid=" + str(uid))
@@ -809,7 +809,7 @@ def main():
     app = wx.App()
 
     if args.scan and p is None:
-        p = Popen(['pkexec', 'env', 'HOME='+os.getenv("HOME"), sys.executable, sys.argv[0], SECRET_ELEVATED_CHILD], stdout=PIPE, stdin=PIPE, text=True)
+        p = subprocess.Popen(['pkexec', 'env', 'HOME='+os.getenv("HOME"), sys.executable, sys.argv[0], SECRET_ELEVATED_CHILD], stdout=subprocess.PIPE, stdin=subprocess.PIPE, text=True)
 
     scanner = Scanner(scan=args.scan)
 
